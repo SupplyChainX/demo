@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block title %}Integrations - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">Integrations</h1>
+            <p class="text-muted">Manage external data sources and API connections</p>
+        </div>
+    </div>
+
+    <!-- Integration Status Overview -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-success">12</h3>
+                    <p class="text-muted mb-0">Active</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-warning">2</h3>
+                    <p class="text-muted mb-0">Warning</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-danger">1</h3>
+                    <p class="text-muted mb-0">Failed</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-secondary">3</h3>
+                    <p class="text-muted mb-0">Disabled</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Integration Categories -->
+    <ul class="nav nav-tabs mb-4" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#weather" type="button">
+                <i class="bi bi-cloud-sun"></i> Weather & Environment
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#maritime" type="button">
+                <i class="bi bi-water"></i> Maritime & Shipping
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#geopolitical" type="button">
+                <i class="bi bi-globe"></i> Geopolitical
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#suppliers" type="button">
+                <i class="bi bi-building"></i> Suppliers
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#internal" type="button">
+                <i class="bi bi-server"></i> Internal Systems
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+        <!-- Weather Tab -->
+        <div class="tab-pane fade show active" id="weather" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="card-title">NOAA Weather API</h5>
+                                    <p class="text-muted">National weather data and forecasts</p>
+                                </div>
+                                <span class="badge bg-success">Active</span>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted">Last sync: 5 minutes ago</small><br>
+                                <small class="text-muted">API calls today: 1,234 / 10,000</small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="testIntegration('noaa')">
+                                    Test Connection
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="configureIntegration('noaa')">
+                                    Configure
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="card-title">Open-Meteo API</h5>
+                                    <p class="text-muted">Global weather forecasts</p>
+                                </div>
+                                <span class="badge bg-success">Active</span>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted">Last sync: 10 minutes ago</small><br>
+                                <small class="text-muted">API calls today: 567 / 5,000</small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="testIntegration('openmeteo')">
+                                    Test Connection
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="configureIntegration('openmeteo')">
+                                    Configure
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Maritime Tab -->
+        <div class="tab-pane fade" id="maritime" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="card-title">AIS Vessel Tracking</h5>
+                                    <p class="text-muted">Real-time vessel positions</p>
+                                </div>
+                                <span class="badge bg-warning">Limited</span>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted">Last sync: 1 hour ago</small><br>
+                                <small class="text-muted">Status: Rate limit approaching</small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="testIntegration('ais')">
+                                    Test Connection
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="configureIntegration('ais')">
+                                    Configure
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="card-title">Port Authority APIs</h5>
+                                    <p class="text-muted">Port conditions and schedules</p>
+                                </div>
+                                <span class="badge bg-secondary">Disabled</span>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted">Last sync: N/A</small><br>
+                                <small class="text-muted">Status: Configuration required</small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-primary" onclick="enableIntegration('ports')">
+                                    Enable
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="configureIntegration('ports')">
+                                    Configure
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Geopolitical Tab -->
+        <div class="tab-pane fade" id="geopolitical" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="card-title">GDELT Project</h5>
+                                    <p class="text-muted">Global events and news monitoring</p>
+                                </div>
+                                <span class="badge bg-success">Active</span>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted">Last sync: 15 minutes ago</small><br>
+                                <small class="text-muted">Events processed today: 12,456</small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="testIntegration('gdelt')">
+                                    Test Connection
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="configureIntegration('gdelt')">
+                                    Configure
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Suppliers Tab -->
+        <div class="tab-pane fade" id="suppliers" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="card-title">OpenCorporates</h5>
+                                    <p class="text-muted">Company data and verification</p>
+                                </div>
+                                <span class="badge bg-danger">Error</span>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted">Last sync: Failed</small><br>
+                                <small class="text-danger">Error: Invalid API key</small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-danger" onclick="fixIntegration('opencorporates')">
+                                    Fix Error
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="configureIntegration('opencorporates')">
+                                    Configure
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Internal Systems Tab -->
+        <div class="tab-pane fade" id="internal" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="card-title">ERP System</h5>
+                                    <p class="text-muted">SAP integration for inventory and orders</p>
+                                </div>
+                                <span class="badge bg-success">Active</span>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted">Last sync: 2 minutes ago</small><br>
+                                <small class="text-muted">Records synced today: 3,456</small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="testIntegration('erp')">
+                                    Test Connection
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="configureIntegration('erp')">
+                                    Configure
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="card-title">WMS Integration</h5>
+                                    <p class="text-muted">Warehouse management system</p>
+                                </div>
+                                <span class="badge bg-success">Active</span>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted">Last sync: 5 minutes ago</small><br>
+                                <small class="text-muted">Inventory updates: Real-time</small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="testIntegration('wms')">
+                                    Test Connection
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="configureIntegration('wms')">
+                                    Configure
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Configuration Modal -->
+<div class="modal fade" id="configModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configure Integration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Dynamic content based on integration -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveConfiguration()">Save Configuration</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function testIntegration(integration) {
+    showToast('Testing', `Testing connection to ${integration}...`, 'info');
+    // Simulate test
+    setTimeout(() => {
+        showToast('Success', `${integration} connection successful`, 'success');
+    }, 2000);
+}
+
+function configureIntegration(integration) {
+    // Show configuration modal
+    const modal = new bootstrap.Modal(document.getElementById('configModal'));
+    modal.show();
+}
+
+function enableIntegration(integration) {
+    showToast('Success', `${integration} integration enabled`, 'success');
+}
+
+function fixIntegration(integration) {
+    configureIntegration(integration);
+}
+
+function saveConfiguration() {
+    showToast('Success', 'Configuration saved', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('configModal')).hide();
+}
+</script>
+{% endblock %}

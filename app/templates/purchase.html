@@ -1,0 +1,1007 @@
+{% extends "base.html" %}
+
+{% block title %}PO-{{ purchase_order.po_number }} - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('main.procurement') }}">Procurement</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ purchase_order.po_number }}</li>
+        </ol>
+    </nav>
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">Purchase Order: {{ purchase_order.po_number }}</h1>
+            <p class="text-muted mb-0">{{ purchase_order.supplier.name }}</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-{{ purchase_order.status|replace('_', '-') }} me-2">
+                {{ purchase_order.status|replace('_', ' ')|title }}
+            </span>
+            {% if purchase_order.ai_generated %}
+            <span class="badge bg-info me-2">AI Generated</span>
+            {% endif %}
+            {% if purchase_order.status in ['draft', 'under_review'] %}
+            <button class="btn btn-outline-primary btn-sm" onclick="editPO({{ purchase_order.id }})">
+                <i class="bi bi-pencil"></i> Edit
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#summary">Summary</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#lineItems">Line Items</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#quotes">Supplier Quotes</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#documents">Documents</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#history">History</a>
+        </li>
+    </ul>
+    
+    <!-- Tab Content -->
+    <div class="tab-content">
+        <!-- Summary Tab -->
+        <div class="tab-pane fade show active" id="summary">
+            <div class="row g-3">
+                <div class="col-lg-8">
+                    <!-- PO Details Card -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Purchase Order Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="text-muted">PO Number</label>
+                                    <p class="fw-bold">{{ purchase_order.po_number }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="text-muted">Created Date</label>
+                                    <p class="fw-bold">
+                                        {% if purchase_order.created_at %}
+                                            {{ purchase_order.created_at.strftime('%Y-%m-%d') }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="text-muted">Delivery Date</label>
+                                    <p class="fw-bold">
+                                        {% if purchase_order.delivery_date %}
+                                            {{ purchase_order.delivery_date.strftime('%Y-%m-%d') }}
+                                        {% else %}
+                                            Not specified
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="text-muted">Payment Terms</label>
+                                    <p class="fw-bold">{{ purchase_order.payment_terms }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="text-muted">Total Amount</label>
+                                    <p class="fw-bold text-primary">
+                                        {% if purchase_order.total_amount %}
+                                            ${{ "{:,.2f}".format(purchase_order.total_amount) }}
+                                        {% else %}
+                                            $0.00
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="text-muted">Currency</label>
+                                    <p class="fw-bold">{{ purchase_order.currency }}</p>
+                                </div>
+                            </div>
+                            
+                            {% if purchase_order.notes %}
+                            <hr>
+                            <label class="text-muted">Notes</label>
+                            <p>{{ purchase_order.notes }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Approval Status -->
+                    {% if purchase_order.status == 'under_review' and pending_approval %}
+                    <div class="card">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">
+                                <i class="bi bi-exclamation-triangle"></i> Approval Required
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p>This purchase order requires approval due to:</p>
+                            <ul>
+                                {% for check in pending_approval.policy_checks %}
+                                {% if not check.result %}
+                                <li>
+                                    <strong>{{ check.policy_name }}:</strong> {{ check.reason }}
+                                </li>
+                                {% endif %}
+                                {% endfor %}
+                            </ul>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-success" onclick="approvePO({{ purchase_order.id }})">
+                                    <i class="bi bi-check-circle"></i> Approve
+                                </button>
+                                <button class="btn btn-danger" onclick="rejectPO({{ purchase_order.id }})">
+                                    <i class="bi bi-x-circle"></i> Reject
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="requestModification({{ purchase_order.id }})">
+                                    <i class="bi bi-pencil"></i> Request Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-lg-4">
+                    <!-- AI Procurement Agent Panel -->
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="bi bi-robot"></i> AI Procurement Agent
+                                <div class="float-end">
+                                    <small class="badge bg-success">Online</small>
+                                </div>
+                            </h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="procurement-chat-panel" style="height: 350px; overflow-y: auto; padding: 15px; background-color: #f8f9fa;">
+                                <div id="procurementChat">
+                                    <!-- Welcome message -->
+                                    <div class="chat-message bot mb-3">
+                                        <div class="d-flex">
+                                            <div class="flex-shrink-0">
+                                                <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                    <i class="bi bi-robot small"></i>
+                                                </div>
+                                            </div>
+                                            <div class="flex-grow-1 ms-3">
+                                                <div class="bg-white rounded p-3 shadow-sm">
+                                                    <small class="text-muted">AI Procurement Agent</small>
+                                                    <p class="mb-0">Hello! I'm here to help you with PO {{ purchase_order.po_number }}. I can assist with pricing analysis, supplier comparison, negotiation strategies, and market insights.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% if purchase_order.ai_suggestions %}
+                                    <div class="chat-message bot mb-3">
+                                        <div class="d-flex">
+                                            <div class="flex-shrink-0">
+                                                <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                    <i class="bi bi-lightbulb small"></i>
+                                                </div>
+                                            </div>
+                                            <div class="flex-grow-1 ms-3">
+                                                <div class="bg-white rounded p-3 shadow-sm">
+                                                    <small class="text-muted">Proactive Insights</small>
+                                                    <p class="mb-2">Based on my analysis, here are some suggestions:</p>
+                                                    <ul class="mb-0">
+                                                        {% for suggestion in purchase_order.ai_suggestions %}
+                                                        <li>{{ suggestion }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <!-- Typing indicator (hidden by default) -->
+                                <div id="typingIndicator" class="chat-message bot mb-3" style="display: none;">
+                                    <div class="d-flex">
+                                        <div class="flex-shrink-0">
+                                            <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                <i class="bi bi-robot small"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <div class="bg-white rounded p-3 shadow-sm">
+                                                <div class="typing-dots">
+                                                    <span></span><span></span><span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="border-top p-3">
+                                <div class="chat-input">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="procurementQuery" 
+                                               placeholder="Ask about pricing, suppliers, negotiations..." 
+                                               style="border-radius: 20px 0 0 20px;">
+                                        <button class="btn btn-primary" onclick="sendProcurementQuery()" style="border-radius: 0 20px 20px 0;">
+                                            <i class="bi bi-send"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Quick action buttons -->
+                                <div class="quick-actions mt-3 d-flex flex-wrap gap-1">
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="sendProcurementQuickQuery('analyze pricing trends')">
+                                        💰 Pricing
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="sendProcurementQuickQuery('compare suppliers')">
+                                        🏢 Suppliers 
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="generateCounterOffer()">
+                                        📝 Negotiate
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="sendProcurementQuickQuery('check delivery options')">
+                                        🚚 Delivery
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                {% if purchase_order.status == 'draft' %}
+                                <button class="btn btn-primary" onclick="submitForReview({{ purchase_order.id }})">
+                                    Submit for Review
+                                </button>
+                                <button class="btn btn-outline-primary" onclick="editPO({{ purchase_order.id }})">
+                                    Edit
+                                </button>
+                                {% elif purchase_order.status == 'approved' %}
+                                <button class="btn btn-success" onclick="sendToSupplier({{ purchase_order.id }})">
+                                    Send to Supplier
+                                </button>
+                                {% elif purchase_order.status == 'sent' %}
+                                <button class="btn btn-primary" onclick="markReceived({{ purchase_order.id }})">
+                                    Mark as Received
+                                </button>
+                                {% endif %}
+                                <button class="btn btn-outline-secondary" onclick="downloadPO({{ purchase_order.id }})">
+                                    <i class="bi bi-download"></i> Download PDF
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="emailPO({{ purchase_order.id }})">
+                                    <i class="bi bi-envelope"></i> Email
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Line Items Tab -->
+        <div class="tab-pane fade" id="lineItems">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Description</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Total</th>
+                                    <th>Lead Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in purchase_order.line_items %}
+                                <tr>
+                                    <td>{{ item.sku }}</td>
+                                    <td>{{ item.description }}</td>
+                                    <td>{{ "{:,.0f}".format(item.quantity) }}</td>
+                                    <td>${{ "{:,.2f}".format(item.unit_price) }}</td>
+                                    <td>${{ "{:,.2f}".format(item.quantity * item.unit_price) }}</td>
+                                    <td>{{ item.lead_time_days }} days</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="4" class="text-end">Subtotal:</th>
+                                    <th>
+                                        {% if purchase_order.total_amount %}
+                                            ${{ "{:,.2f}".format(purchase_order.total_amount) }}
+                                        {% else %}
+                                            $0.00
+                                        {% endif %}
+                                    </th>
+                                    <th></th>
+                                </tr>
+                                <tr>
+                                    <th colspan="4" class="text-end">Total:</th>
+                                    <th class="text-primary">
+                                        {% if purchase_order.total_amount %}
+                                            ${{ "{:,.2f}".format(purchase_order.total_amount) }}
+                                        {% else %}
+                                            $0.00
+                                        {% endif %}
+                                    </th>
+                                    <th></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Supplier Quotes Tab -->
+        <div class="tab-pane fade" id="quotes">
+            <div class="card">
+                <div class="card-body">
+                    {% if quotes %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Supplier</th>
+                                    <th>Quote Date</th>
+                                    <th>Total Amount</th>
+                                    <th>Lead Time</th>
+                                    <th>Score</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for quote in quotes %}
+                                <tr>
+                                    <td>{{ quote.supplier.name }}</td>
+                                    <td>
+                                        {% if quote.created_at %}
+                                            {{ quote.created_at.strftime('%Y-%m-%d') }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>${{ "{:,.2f}".format(quote.total_amount) }}</td>
+                                    <td>{{ quote.lead_time_days }} days</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-success" 
+                                                 style="width: {{ quote.score }}%">
+                                                {{ quote.score }}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick="viewQuote({{ quote.id }})">View</button>
+                                        <button class="btn btn-sm btn-outline-success" 
+                                                onclick="selectQuote({{ quote.id }})">Select</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">No quotes received yet</p>
+                    <div class="text-center">
+                        <button class="btn btn-primary" onclick="requestQuotes()">
+                            Request Quotes from Suppliers
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Documents Tab -->
+        <div class="tab-pane fade" id="documents">
+            <div class="card">
+                <div class="card-body">
+                    <p class="text-muted">Document management coming soon...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- History Tab -->
+        <div class="tab-pane fade" id="history">
+            <div class="card">
+                <div class="card-body">
+                    <div class="timeline">
+                        {% for event in purchase_order.events|reverse %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">{{ event.title }}</h6>
+                                <p class="mb-1">{{ event.description }}</p>
+                                <small class="text-muted">
+                                    {% if event.created_at %}
+                                        {{ event.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    {% else %}
+                                        Unknown date
+                                    {% endif %}
+                                    - {{ event.created_by }}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Purchase Order Modal -->
+<div class="modal fade" id="editPOModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Purchase Order: {{ purchase_order.po_number }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editPOForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editSupplier" class="form-label">Supplier</label>
+                                <select class="form-select" id="editSupplier" name="supplier_id" required>
+                                    <option value="">Loading suppliers...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editCurrency" class="form-label">Currency</label>
+                                <select class="form-select" id="editCurrency" name="currency">
+                                    <option value="USD">USD - US Dollar</option>
+                                    <option value="EUR">EUR - Euro</option>
+                                    <option value="GBP">GBP - British Pound</option>
+                                    <option value="JPY">JPY - Japanese Yen</option>
+                                    <option value="CAD">CAD - Canadian Dollar</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editTotalAmount" class="form-label">Total Amount</label>
+                                <input type="number" class="form-control" id="editTotalAmount" name="total_amount" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editDeliveryDate" class="form-label">Delivery Date</label>
+                                <input type="date" class="form-control" id="editDeliveryDate" name="delivery_date">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editPaymentTerms" class="form-label">Payment Terms</label>
+                        <select class="form-select" id="editPaymentTerms" name="payment_terms">
+                            <option value="">Select payment terms</option>
+                            <option value="Net 30">Net 30</option>
+                            <option value="Net 60">Net 60</option>
+                            <option value="Net 90">Net 90</option>
+                            <option value="2/10 Net 30">2/10 Net 30</option>
+                            <option value="COD">Cash on Delivery</option>
+                            <option value="Prepaid">Prepaid</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editNotes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="editNotes" name="notes" rows="3"></textarea>
+                    </div>
+                    
+                    <!-- Line Items Section -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0">Line Items</label>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addLineItem()">
+                                <i class="bi bi-plus"></i> Add Item
+                            </button>
+                        </div>
+                        <div id="lineItemsContainer">
+                            <!-- Line items will be populated here -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="savePurchaseOrder()">
+                    <span class="spinner-border spinner-border-sm d-none me-2" id="saveSpinner"></span>
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Counter-Offer Modal -->
+<div class="modal fade" id="counterOfferModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">AI-Generated Counter-Offer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="counterOfferContent">
+                    <!-- Content loaded dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="sendCounterOffer()">Send Counter-Offer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Typing animation */
+    .typing-dots {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+    }
+    
+    .typing-dots span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: #6c757d;
+        animation: typing 1.4s infinite;
+    }
+    
+    .typing-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    
+    .typing-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+    
+    @keyframes typing {
+        0%, 60%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        30% {
+            transform: scale(1.2);
+            opacity: 1;
+        }
+    }
+    
+    /* Chat styling */
+    .procurement-chat-panel {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    
+    .chat-message .avatar {
+        font-size: 12px;
+    }
+    
+    .quick-actions .btn {
+        font-size: 11px;
+        padding: 4px 8px;
+    }
+    
+    /* Smooth scrolling */
+    .procurement-chat-panel {
+        scroll-behavior: smooth;
+    }
+    
+    /* Input styling */
+    #procurementQuery:focus {
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        border-color: #86b7fe;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const purchaseOrderId = {{ purchase_order.id }};
+    const purchaseOrderAmount = {{ purchase_order.total_amount or 0 }};
+    
+    // Procurement AI Chat functionality (namespaced to avoid conflicts with main assistant)
+    function sendProcurementQuery() {
+        const query = document.getElementById('procurementQuery').value;
+        if (!query.trim()) return;
+        
+        // Add user message to procurement chat
+        addProcurementChatMessage(query, 'user');
+        
+        // Show typing indicator
+        showProcurementTypingIndicator();
+        
+        // Clear input
+        document.getElementById('procurementQuery').value = '';
+        
+        // Send to AI
+        fetch(`/api/procurement/ai-query`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                po_id: purchaseOrderId,
+                query: query
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideProcurementTypingIndicator();
+            addProcurementChatMessage(data.response, 'bot');
+            if (data.suggestions && data.suggestions.length > 0) {
+                displayProcurementSuggestions(data.suggestions);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            hideProcurementTypingIndicator();
+            addProcurementChatMessage('Sorry, I encountered an error. Please try again.', 'bot');
+        });
+    }
+    
+    function sendProcurementQuickQuery(query) {
+        document.getElementById('procurementQuery').value = query;
+        sendProcurementQuery();
+    }
+    
+    function addProcurementChatMessage(message, sender) {
+        const chatDiv = document.getElementById('procurementChat');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `procurement-chat-message ${sender} mb-3`;
+        
+        if (sender === 'user') {
+            messageDiv.innerHTML = `
+                <div class="d-flex justify-content-end">
+                    <div class="flex-grow-1 me-3 text-end">
+                        <div class="bg-primary text-white rounded p-3 shadow-sm" style="max-width: 80%; margin-left: auto;">
+                            <p class="mb-0">${message}</p>
+                            <small class="opacity-75">${new Date().toLocaleTimeString()}</small>
+                        </div>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="avatar bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                            <i class="bi bi-person small"></i>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            messageDiv.innerHTML = `
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                            <i class="bi bi-robot small"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="bg-white rounded p-3 shadow-sm">
+                            <small class="text-muted">AI Procurement Agent</small>
+                            <p class="mb-0">${message}</p>
+                            <small class="text-muted opacity-75">${new Date().toLocaleTimeString()}</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        chatDiv.appendChild(messageDiv);
+        chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+    
+    function showProcurementTypingIndicator() {
+        document.getElementById('typingIndicator').style.display = 'block';
+        const chatDiv = document.getElementById('procurementChat');
+        chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+    
+    function hideProcurementTypingIndicator() {
+        document.getElementById('typingIndicator').style.display = 'none';
+    }
+    
+    function displayProcurementSuggestions(suggestions) {
+        const chatDiv = document.getElementById('procurementChat');
+        const suggestionsDiv = document.createElement('div');
+        suggestionsDiv.className = 'procurement-suggestions mb-3';
+        
+        let buttonsHtml = '';
+        suggestions.forEach(suggestion => {
+            buttonsHtml += `<button class="btn btn-sm btn-outline-primary me-2 mb-1 rounded-pill" onclick="sendProcurementQuickQuery('${suggestion}')">${suggestion}</button>`;
+        });
+        
+        suggestionsDiv.innerHTML = `
+            <div class="d-flex">
+                <div class="flex-shrink-0">
+                    <div class="avatar bg-info text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                        <i class="bi bi-lightbulb small"></i>
+                    </div>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                    <div class="bg-light rounded p-3">
+                        <small class="text-muted">Quick actions:</small>
+                        <div class="mt-2">${buttonsHtml}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        chatDiv.appendChild(suggestionsDiv);
+        chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+    
+    function generateCounterOffer() {
+        addProcurementChatMessage('Generate a counter-offer for this purchase order', 'user');
+        showProcurementTypingIndicator();
+        
+        fetch(`/api/procurement/generate-counter-offer`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                po_id: purchaseOrderId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideProcurementTypingIndicator();
+            
+            // Show counter-offer in chat
+            const reduction = ((1 - data.suggested_amount / purchaseOrderAmount) * 100).toFixed(1);
+            const message = `I've generated a counter-offer suggesting a ${reduction}% reduction to $${data.suggested_amount.toLocaleString()}. ${data.rationale}`;
+            addProcurementChatMessage(message, 'bot');
+            
+            // Show modal with full details
+            document.getElementById('counterOfferContent').innerHTML = `
+                <h6>Suggested Counter-Offer</h6>
+                <p><strong>New Total:</strong> $${data.suggested_amount.toLocaleString()}</p>
+                <p><strong>Rationale:</strong> ${data.rationale}</p>
+                <p><strong>Key Points:</strong></p>
+                <ul>
+                    ${data.negotiation_points.map(point => `<li>${point}</li>`).join('')}
+                </ul>
+                <p><strong>Draft Message:</strong></p>
+                <textarea class="form-control" rows="8" readonly>${data.draft_message}</textarea>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('counterOfferModal'));
+            modal.show();
+        })
+        .catch(error => {
+            hideProcurementTypingIndicator();
+            addProcurementChatMessage('Sorry, I could not generate a counter-offer at this time.', 'bot');
+        });
+    }
+    
+    // Enable Enter key to send messages
+    document.getElementById('procurementQuery').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendProcurementQuery();
+        }
+    });
+    
+    // Purchase Order Edit Functionality
+    let suppliers = [];
+    let lineItemCounter = 0;
+    
+    function editPO(poId) {
+        // Show the modal instead of redirecting
+        loadSuppliers();
+        populateEditForm();
+        const modal = new bootstrap.Modal(document.getElementById('editPOModal'));
+        modal.show();
+    }
+    
+    function loadSuppliers() {
+        fetch('/api/suppliers')
+            .then(response => response.json())
+            .then(data => {
+                suppliers = data.suppliers;
+                const supplierSelect = document.getElementById('editSupplier');
+                supplierSelect.innerHTML = '<option value="">Select a supplier</option>';
+                
+                suppliers.forEach(supplier => {
+                    const option = document.createElement('option');
+                    option.value = supplier.id;
+                    option.textContent = supplier.name;
+                    supplierSelect.appendChild(option);
+                });
+                
+                // Set current supplier
+                supplierSelect.value = {{ purchase_order.supplier_id }};
+            })
+            .catch(error => {
+                console.error('Error loading suppliers:', error);
+                document.getElementById('editSupplier').innerHTML = '<option value="">Error loading suppliers</option>';
+            });
+    }
+    
+    function populateEditForm() {
+        // Populate form fields with current values
+        document.getElementById('editSupplier').value = {{ purchase_order.supplier_id }};
+        document.getElementById('editCurrency').value = '{{ purchase_order.currency }}';
+        document.getElementById('editTotalAmount').value = {{ purchase_order.total_amount or 0 }};
+        document.getElementById('editDeliveryDate').value = '{{ purchase_order.delivery_date.strftime("%Y-%m-%d") if purchase_order.delivery_date else "" }}';
+        document.getElementById('editPaymentTerms').value = '{{ purchase_order.payment_terms or "" }}';
+        document.getElementById('editNotes').value = '{{ purchase_order.notes or "" }}';
+        
+        // Populate line items
+        const lineItems = {{ purchase_order.line_items | tojson | safe }};
+        const container = document.getElementById('lineItemsContainer');
+        container.innerHTML = '';
+        lineItemCounter = 0;
+        
+        if (lineItems && lineItems.length > 0) {
+            lineItems.forEach(item => {
+                addLineItem(item);
+            });
+        } else {
+            addLineItem(); // Add one empty line item
+        }
+    }
+    
+    function addLineItem(item = null) {
+        const container = document.getElementById('lineItemsContainer');
+        const itemId = lineItemCounter++;
+        
+        const lineItemHtml = `
+            <div class="row mb-2 line-item" data-item-id="${itemId}">
+                <div class="col-md-3">
+                    <input type="text" class="form-control form-control-sm" placeholder="SKU" 
+                           name="line_items[${itemId}][sku]" value="${item?.sku || ''}" onchange="updateLineItemTotal(${itemId})">
+                </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control form-control-sm" placeholder="Description" 
+                           name="line_items[${itemId}][description]" value="${item?.description || ''}">
+                </div>
+                <div class="col-md-2">
+                    <input type="number" class="form-control form-control-sm" placeholder="Qty" 
+                           name="line_items[${itemId}][quantity]" value="${item?.quantity || ''}" min="1" onchange="updateLineItemTotal(${itemId})">
+                </div>
+                <div class="col-md-2">
+                    <input type="number" class="form-control form-control-sm" placeholder="Unit Price" 
+                           name="line_items[${itemId}][unit_price]" value="${item?.unit_price || ''}" step="0.01" min="0" onchange="updateLineItemTotal(${itemId})">
+                </div>
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeLineItem(${itemId})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', lineItemHtml);
+    }
+    
+    function removeLineItem(itemId) {
+        const lineItem = document.querySelector(`[data-item-id="${itemId}"]`);
+        if (lineItem) {
+            lineItem.remove();
+            updateTotalAmount();
+        }
+    }
+    
+    function updateLineItemTotal(itemId) {
+        const lineItem = document.querySelector(`[data-item-id="${itemId}"]`);
+        const quantity = parseFloat(lineItem.querySelector('[name*="[quantity]"]').value) || 0;
+        const unitPrice = parseFloat(lineItem.querySelector('[name*="[unit_price]"]').value) || 0;
+        
+        updateTotalAmount();
+    }
+    
+    function updateTotalAmount() {
+        let total = 0;
+        document.querySelectorAll('.line-item').forEach(lineItem => {
+            const quantity = parseFloat(lineItem.querySelector('[name*="[quantity]"]').value) || 0;
+            const unitPrice = parseFloat(lineItem.querySelector('[name*="[unit_price]"]').value) || 0;
+            total += quantity * unitPrice;
+        });
+        
+        document.getElementById('editTotalAmount').value = total.toFixed(2);
+    }
+    
+    function savePurchaseOrder() {
+        const form = document.getElementById('editPOForm');
+        const formData = new FormData(form);
+        
+        // Collect line items
+        const lineItems = [];
+        document.querySelectorAll('.line-item').forEach(lineItem => {
+            const sku = lineItem.querySelector('[name*="[sku]"]').value;
+            const description = lineItem.querySelector('[name*="[description]"]').value;
+            const quantity = parseFloat(lineItem.querySelector('[name*="[quantity]"]').value) || 0;
+            const unitPrice = parseFloat(lineItem.querySelector('[name*="[unit_price]"]').value) || 0;
+            
+            if (sku && quantity > 0 && unitPrice > 0) {
+                lineItems.push({
+                    sku: sku,
+                    description: description,
+                    quantity: quantity,
+                    unit_price: unitPrice,
+                    total: quantity * unitPrice
+                });
+            }
+        });
+        
+        // Prepare data for API
+        const data = {
+            supplier_id: parseInt(formData.get('supplier_id')),
+            currency: formData.get('currency'),
+            total_amount: parseFloat(formData.get('total_amount')),
+            delivery_date: formData.get('delivery_date'),
+            payment_terms: formData.get('payment_terms'),
+            notes: formData.get('notes'),
+            line_items: lineItems
+        };
+        
+        // Show loading spinner
+        const saveButton = document.querySelector('#editPOModal .btn-primary');
+        const spinner = document.getElementById('saveSpinner');
+        saveButton.disabled = true;
+        spinner.classList.remove('d-none');
+        
+        // Send update request
+        fetch(`/api/purchase-orders/${purchaseOrderId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            // Hide modal and reload page
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editPOModal'));
+            modal.hide();
+            
+            // Show success message and reload
+            alert('Purchase order updated successfully!');
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error updating purchase order: ' + error.message);
+        })
+        .finally(() => {
+            // Hide loading spinner
+            saveButton.disabled = false;
+            spinner.classList.add('d-none');
+        });
+    }
+    
+    // Make editPO function available globally for the edit button
+    window.editPO = editPO;
+</script>
+{% endblock %}

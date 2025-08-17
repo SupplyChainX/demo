@@ -1,0 +1,683 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">Reports</h1>
+            <p class="text-muted">KPIs and Executive Overview</p>
+        </div>
+    </div>
+
+    <!-- Controls Row -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-auto">
+                            <label class="col-form-label">Date Range:</label>
+                        </div>
+                        <div class="col-auto">
+                            <select class="form-select" id="dateRangeSelect" onchange="updateReports()">
+                                <option value="qtd" selected>QTD</option>
+                                <option value="mtd">MTD</option>
+                                <option value="ytd">YTD</option>
+                                <option value="6months">6 Months</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <label class="col-form-label">Compare:</label>
+                        </div>
+                        <div class="col-auto">
+                            <select class="form-select" id="compareSelect" onchange="updateReports()">
+                                <option value="yoy">YoY</option>
+                                <option value="qoq">QoQ</option>
+                                <option value="mom">MoM</option>
+                            </select>
+                        </div>
+                        <div class="col-auto ms-auto">
+                            <button class="btn btn-outline-secondary" onclick="showFilters()">
+                                <i class="bi bi-gear"></i> Filters
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="exportReport('pdf')">
+                                <i class="bi bi-file-pdf"></i> PDF
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="exportReport('csv')">
+                                <i class="bi bi-file-spreadsheet"></i> CSV
+                            </button>
+                            <button class="btn btn-outline-success" onclick="refreshReports()" id="refreshBtn">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Charts Row 1 -->
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">On-time Delivery %</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="otdChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Cost Avoided ($)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="costAvoidedChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Charts Row 2 -->
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Emissions per Route (tCO₂e)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="emissionsChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Alert MTTR (Mean Time to Resolution)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="mttrChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Decision Queue -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Decision Queue</h5>
+                    <span class="badge bg-primary" id="decisionCount">Loading...</span>
+                </div>
+                <div class="card-body">
+                    <div id="decisionQueueContainer">
+                        <!-- Loading spinner -->
+                        <div class="text-center py-3">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading decisions...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Global chart objects
+let charts = {};
+
+// Initialize charts when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    loadDecisionQueue();
+    
+    // Set up real-time updates (every 30 seconds)
+    setInterval(refreshReports, 30000);
+    
+    // Set up WebSocket connection for real-time updates
+    if (typeof socket !== 'undefined') {
+        socket.on('kpi_update', function(data) {
+            updateChartsFromWebSocket(data);
+        });
+        
+        socket.on('decision_queue_update', function(data) {
+            loadDecisionQueue();
+        });
+    }
+});
+
+function initializeCharts() {
+    // Initialize empty charts first, then load data
+    initializeOTDChart();
+    initializeCostAvoidedChart();
+    initializeEmissionsChart();
+    initializeMTTRChart();
+    
+    // Load initial data
+    updateReports();
+}
+
+function initializeOTDChart() {
+    const otdCtx = document.getElementById('otdChart').getContext('2d');
+    charts.otd = new Chart(otdCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Current Period',
+                data: [],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                tension: 0.1
+            }, {
+                label: 'Previous Period',
+                data: [],
+                borderColor: 'rgb(201, 203, 207)',
+                backgroundColor: 'rgba(201, 203, 207, 0.1)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    min: 85,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function initializeCostAvoidedChart() {
+    const costCtx = document.getElementById('costAvoidedChart').getContext('2d');
+    charts.costAvoided = new Chart(costCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Cost Avoided ($K)',
+                data: [],
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value + 'K';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Cost Avoided: $' + context.parsed.y + 'K';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function initializeEmissionsChart() {
+    const emissionsCtx = document.getElementById('emissionsChart').getContext('2d');
+    charts.emissions = new Chart(emissionsCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Air', 'Ocean', 'Rail', 'Road'],
+            datasets: [{
+                label: 'Current Period',
+                data: [],
+                backgroundColor: 'rgba(255, 206, 86, 0.5)',
+                borderColor: 'rgba(255, 206, 86, 1)',
+                borderWidth: 1
+            }, {
+                label: 'Previous Period',
+                data: [],
+                backgroundColor: 'rgba(201, 203, 207, 0.5)',
+                borderColor: 'rgba(201, 203, 207, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value + ' tCO₂e';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y + ' tCO₂e';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function initializeMTTRChart() {
+    const mttrCtx = document.getElementById('mttrChart').getContext('2d');
+    charts.mttr = new Chart(mttrCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'MTTR (hours)',
+                data: [],
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                fill: true,
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value + 'h';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'MTTR: ' + context.parsed.y + ' hours';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateReports() {
+    const period = document.getElementById('dateRangeSelect').value;
+    const compare = document.getElementById('compareSelect').value;
+    
+    // Show loading state
+    setLoadingState(true);
+    
+    // Fetch all KPI data
+    Promise.all([
+        fetchOTDData(period, compare),
+        fetchCostAvoidedData(period, compare),
+        fetchEmissionsData(period, compare),
+        fetchMTTRData(period, compare)
+    ]).then(() => {
+        setLoadingState(false);
+    }).catch(error => {
+        console.error('Error updating reports:', error);
+        setLoadingState(false);
+        showToast('Error', 'Failed to update reports', 'error');
+    });
+}
+
+function fetchOTDData(period, compare) {
+    return fetch(`/api/reports/on-time-delivery?period=${period}&compare=${compare}`)
+        .then(response => response.json())
+        .then(data => {
+            // Extract data from the actual API response structure
+            const labels = data.data ? data.data.map(item => item.date) : [];
+            const values = data.data ? data.data.map(item => item.on_time_rate) : [];
+            
+            charts.otd.data.labels = labels;
+            charts.otd.data.datasets[0].data = values;
+            // For now, use same data for previous period (comparison not implemented in API)
+            charts.otd.data.datasets[1].data = values.map(v => Math.max(0, v - 5)); 
+            charts.otd.update();
+        });
+}
+
+function fetchCostAvoidedData(period, compare) {
+    return fetch(`/api/reports/cost-avoided?period=${period}&compare=${compare}`)
+        .then(response => response.json())
+        .then(data => {
+            // Extract data from the actual API response structure
+            const labels = data.data ? data.data.map(item => item.month) : [];
+            const values = data.data ? data.data.map(item => item.cumulative_savings) : [];
+            
+            charts.costAvoided.data.labels = labels;
+            charts.costAvoided.data.datasets[0].data = values;
+            charts.costAvoided.update();
+        });
+}
+
+function fetchEmissionsData(period, compare) {
+    return fetch(`/api/reports/emissions-by-route?period=${period}&compare=${compare}`)
+        .then(response => response.json())
+        .then(data => {
+            // Extract data from the actual API response structure
+            const emissions = data.emissions_by_route || {};
+            const routes = ['Air', 'Ocean', 'Rail', 'Road'];
+            const values = routes.map(route => emissions[route.toLowerCase()] || 0);
+            
+            charts.emissions.data.datasets[0].data = values;
+            // For now, use demo data for previous period
+            charts.emissions.data.datasets[1].data = values.map(v => Math.max(0, v - 0.1));
+            charts.emissions.update();
+        });
+}
+
+function fetchMTTRData(period, compare) {
+    return fetch(`/api/reports/alert-mttr?period=${period}`)
+        .then(response => response.json())
+        .then(data => {
+            // Extract data from the actual API response structure
+            const labels = data.weekly_trend ? data.weekly_trend.map(item => item.week) : [];
+            const values = data.weekly_trend ? data.weekly_trend.map(item => item.mttr_hours) : [];
+            
+            charts.mttr.data.labels = labels;
+            charts.mttr.data.datasets[0].data = values;
+            charts.mttr.update();
+        });
+}
+
+function loadDecisionQueue() {
+    fetch('/api/reports/decision-queue')
+        .then(response => response.json())
+        .then(data => {
+            renderDecisionQueue(data.items || []);
+            document.getElementById('decisionCount').textContent = data.queue_length || 0;
+        })
+        .catch(error => {
+            console.error('Error loading decision queue:', error);
+            document.getElementById('decisionQueueContainer').innerHTML = 
+                '<div class="alert alert-danger">Failed to load decision queue</div>';
+        });
+}
+
+function renderDecisionQueue(decisions) {
+    const container = document.getElementById('decisionQueueContainer');
+    
+    if (decisions.length === 0) {
+        container.innerHTML = '<div class="alert alert-info">No pending decisions</div>';
+        return;
+    }
+    
+    const html = decisions.map(decision => {
+        const priorityClass = {
+            'critical': 'danger',
+            'high': 'danger', 
+            'medium': 'warning',
+            'low': 'info'
+        }[decision.severity] || 'secondary';
+        
+        return `
+            <div class="alert alert-${priorityClass === 'danger' ? 'danger' : priorityClass === 'warning' ? 'warning' : 'info'} d-flex align-items-center justify-content-between mb-3">
+                <div>
+                    <strong>${decision.title}</strong>
+                    <span class="badge bg-${priorityClass} ms-2">${decision.severity}</span>
+                    <br>
+                    <small class="text-muted">${decision.description}</small>
+                    <br>
+                    <small class="text-muted">Created: ${formatDateTime(decision.created_at)} by ${decision.created_by}</small>
+                </div>
+                <div class="btn-group">
+                    ${decision.requires_approval ? `
+                        <button class="btn btn-sm btn-success" onclick="approveDecision('${decision.id}')">Approve</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="deferDecision('${decision.id}')">Defer</button>
+                    ` : `
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewDecision('${decision.id}')">View</button>
+                    `}
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = html;
+}
+
+function setLoadingState(loading) {
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (loading) {
+        refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise spin"></i> Loading...';
+        refreshBtn.disabled = true;
+    } else {
+        refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
+        refreshBtn.disabled = false;
+    }
+}
+
+function refreshReports() {
+    updateReports();
+    loadDecisionQueue();
+}
+
+function approveDecision(decisionId) {
+    fetch(`/api/reports/decisions/${decisionId}/approve`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Success', 'Decision approved', 'success');
+            loadDecisionQueue(); // Reload queue
+        } else {
+            showToast('Error', 'Failed to approve decision', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error approving decision:', error);
+        showToast('Error', 'Failed to approve decision', 'error');
+    });
+}
+
+function deferDecision(decisionId) {
+    // For now, just remove from view
+    showToast('Info', 'Decision deferred', 'info');
+    loadDecisionQueue();
+}
+
+function viewDecision(decisionId) {
+    // For now, just show an alert
+    alert(`Viewing decision: ${decisionId}`);
+}
+
+function formatDateTime(dateString) {
+    return new Date(dateString).toLocaleString();
+}
+
+function showToast(title, message, type) {
+    // Simple toast implementation
+    const toastContainer = document.getElementById('toastContainer') || createToastContainer();
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show`;
+    toast.innerHTML = `
+        <strong>${title}:</strong> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    toastContainer.appendChild(toast);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 3000);
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'position-fixed top-0 end-0 p-3';
+    container.style.zIndex = '1050';
+    document.body.appendChild(container);
+    return container;
+}
+
+function updateChartsFromWebSocket(data) {
+    // Handle real-time updates from WebSocket
+    if (data.type === 'kpi_update') {
+        updateReports();
+    }
+}
+
+function showFilters() {
+    // Show filter modal (implement based on needs)
+    console.log('Show filters modal');
+}
+
+function exportReport(format) {
+    const period = document.getElementById('dateRangeSelect').value;
+    const compare = document.getElementById('compareSelect').value;
+    
+    const url = `/api/reports/export?format=${format}&period=${period}&compare=${compare}`;
+    window.open(url, '_blank');
+}
+
+function explainDecision(id) {
+    fetch(`/api/reports/decisions/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const modal = `
+                    <div class="modal fade" id="explanationModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Decision Explanation</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <h6>Decision: ${data.decision.title}</h6>
+                                    <p>${data.decision.description}</p>
+                                    <h6>Reasoning:</h6>
+                                    <p>${data.decision.context_data || 'No additional context available'}</p>
+                                    <h6>Potential Impact:</h6>
+                                    <p>${data.decision.impact || 'Impact analysis pending'}</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', modal);
+                const explanationModal = new bootstrap.Modal(document.getElementById('explanationModal'));
+                explanationModal.show();
+                
+                // Clean up modal after hiding
+                document.getElementById('explanationModal').addEventListener('hidden.bs.modal', function() {
+                    this.remove();
+                });
+            }
+        });
+}
+
+function approveDecision(id) {
+    if (confirm('Are you sure you want to approve this decision?')) {
+        fetch(`/api/reports/decisions/${id}/approve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Success', 'Decision approved', 'success');
+                loadDecisionQueue();
+            } else {
+                showToast('Error', data.message || 'Failed to approve decision', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error approving decision:', error);
+            showToast('Error', 'Failed to approve decision', 'error');
+        });
+    }
+}
+
+function deferDecision(id) {
+    const reason = prompt('Please provide a reason for deferring this decision:');
+    if (reason) {
+        fetch(`/api/reports/decisions/${id}/defer`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reason: reason })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Success', 'Decision deferred', 'info');
+                loadDecisionQueue();
+            } else {
+                showToast('Error', data.message || 'Failed to defer decision', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error deferring decision:', error);
+            showToast('Error', 'Failed to defer decision', 'error');
+        });
+    }
+}
+
+// CSS for loading animation
+const style = document.createElement('style');
+style.textContent = `
+    .spin {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

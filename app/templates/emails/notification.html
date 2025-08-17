@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ subject }}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background-color: #0d6efd;
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            padding: 30px 20px;
+        }
+        .alert-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #0d6efd;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .alert-box.high {
+            border-left-color: #dc3545;
+            background-color: #f8d7da;
+        }
+        .alert-box.medium {
+            border-left-color: #ffc107;
+            background-color: #fff3cd;
+        }
+        .alert-box.low {
+            border-left-color: #28a745;
+            background-color: #d4edda;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #0d6efd;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .button.approve {
+            background-color: #28a745;
+        }
+        .button.reject {
+            background-color: #dc3545;
+        }
+        .details {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .details dt {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .details dd {
+            margin-left: 0;
+            margin-bottom: 10px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+        }
+        .footer a {
+            color: #0d6efd;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>SupplyChainX</h1>
+            <p style="margin: 5px 0;">{{ notification_type|title }} Notification</p>
+        </div>
+        
+        <div class="content">
+            <h2>{{ subject }}</h2>
+            
+            {% if notification_type == 'alert' %}
+            <div class="alert-box {{ severity }}">
+                <strong>Severity:</strong> {{ severity|upper }}<br>
+                <strong>Type:</strong> {{ alert_type|title }}<br>
+                <strong>Created:</strong> {{ created_at }}
+            </div>
+            
+            <p>{{ description }}</p>
+            
+            {% if affected_items %}
+            <h3>Affected Items:</h3>
+            <ul>
+                {% for item in affected_items %}
+                <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+            
+            <p>
+                <a href="{{ url_for('main.alert_detail', id=alert_id, _external=True) }}" class="button">
+                    View Alert Details
+                </a>
+            </p>
+            
+            {% elif notification_type == 'approval' %}
+            <div class="alert-box medium">
+                <strong>Your approval is required</strong>
+            </div>
+            
+            <p>{{ description }}</p>
+            
+            <div class="details">
+                <dl>
+                    <dt>Type:</dt>
+                    <dd>{{ approval_type|title }}</dd>
+                    
+                    <dt>Requested by:</dt>
+                    <dd>{{ requested_by }}</dd>
+                    
+                    <dt>Policy:</dt>
+                    <dd>{{ policy_name }}</dd>
+                    
+                    {% if amount %}
+                    <dt>Amount:</dt>
+                    <dd>${{ "{:,.2f}".format(amount) }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+            
+            <p>
+                <a href="{{ url_for('main.approvals', _external=True) }}" class="button approve">
+                    Review & Approve
+                </a>
+                <a href="{{ url_for('main.approvals', _external=True) }}" class="button reject">
+                    Review & Reject
+                </a>
+            </p>
+            
+            {% elif notification_type == 'shipment' %}
+            <p>{{ description }}</p>
+            
+            <div class="details">
+                <dl>
+                    <dt>Shipment:</dt>
+                    <dd>{{ shipment_ref }}</dd>
+                    
+                    <dt>Status:</dt>
+                    <dd>{{ status|title }}</dd>
+                    
+                    <dt>Carrier:</dt>
+                    <dd>{{ carrier }}</dd>
+                    
+                    <dt>ETA:</dt>
+                    <dd>{{ eta }}</dd>
+                </dl>
+            </div>
+            
+            <p>
+                <a href="{{ url_for('main.shipment_detail', shipment_id=shipment_id, _external=True) }}" class="button">
+                    Track Shipment
+                </a>
+            </p>
+            
+            {% elif notification_type == 'recommendation' %}
+            <div class="alert-box low">
+                <strong>New AI Recommendation</strong>
+            </div>
+            
+            <p>{{ description }}</p>
+            
+            <div class="details">
+                <dl>
+                    <dt>Type:</dt>
+                    <dd>{{ recommendation_type|title }}</dd>
+                    
+                    <dt>Confidence:</dt>
+                    <dd>{{ "{:.0%}".format(confidence) }}</dd>
+                    
+                    <dt>Impact:</dt>
+                    <dd>{{ impact }}</dd>
+                </dl>
+            </div>
+            
+            <p>
+                <a href="{{ url_for('main.recommendation_detail', id=recommendation_id, _external=True) }}" class="button">
+                    View Recommendation
+                </a>
+            </p>
+            
+            {% else %}
+            <!-- Generic notification -->
+            <p>{{ description }}</p>
+            
+            {% if action_url %}
+            <p>
+                <a href="{{ action_url }}" class="button">
+                    {{ action_text or 'View Details' }}
+                </a>
+            </p>
+            {% endif %}
+            {% endif %}
+        </div>
+        
+        <div class="footer">
+            <p>
+                This is an automated notification from SupplyChainX.<br>
+                <a href="{{ url_for('main.notifications', _external=True) }}">Manage notification preferences</a>
+            </p>
+            <p>
+                © {{ current_year }} SupplyChainX. All rights reserved.<br>
+                <a href="{{ url_for('main.dashboard', _external=True) }}">Go to Dashboard</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

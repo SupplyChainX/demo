@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+
+{% block title %}{{ recommendation.title }} - Recommendation Detail - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">{{ recommendation.title }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">{{ recommendation.title }}</h1>
+            <p class="text-muted mb-0">{{ recommendation.type|title }} Recommendation - {{ recommendation.subject_ref or 'General' }}</p>
+        </div>
+        <div>
+            <span class="badge bg-{{ 'danger' if recommendation.severity == 'critical' else 'warning' if recommendation.severity == 'high' else 'info' if recommendation.severity == 'medium' else 'secondary' }} me-2">
+                {{ recommendation.severity|title if recommendation.severity else 'Normal' }}
+            </span>
+            <span class="badge bg-{{ 'success' if recommendation.status == 'IMPLEMENTED' else 'warning' if recommendation.status == 'IN_PROGRESS' else 'danger' if recommendation.status == 'REJECTED' else 'primary' }}">
+                {{ recommendation.status|title }}
+            </span>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Recommendation Details -->
+        <div class="col-lg-8">
+            <!-- Recommendation Summary -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Recommendation Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <div class="h2 mb-0 text-{{ 'success' if recommendation.confidence > 0.8 else 'warning' if recommendation.confidence > 0.5 else 'info' if recommendation.confidence else 'secondary' }}">
+                                    {{ "%.0f"|format(recommendation.confidence * 100) if recommendation.confidence else 'N/A' }}%
+                                </div>
+                                <small class="text-muted">Confidence</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <div class="h2 mb-0 text-primary">
+                                    {{ recommendation.type|title }}
+                                </div>
+                                <small class="text-muted">Type</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <div class="h2 mb-0 text-info">
+                                    {{ recommendation.created_by or 'System' }}
+                                </div>
+                                <small class="text-muted">Created By</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>Description</h6>
+                        <p>{{ recommendation.description }}</p>
+                    </div>
+                    
+                    {% if recommendation.subject_ref %}
+                    <div class="mb-3">
+                        <h6>Subject</h6>
+                        <p>{{ recommendation.subject_ref }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Impact Assessment -->
+            {% if recommendation.impact_assessment %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Impact Assessment</h5>
+                </div>
+                <div class="card-body">
+                    {% for key, value in recommendation.impact_assessment.items() %}
+                    <div class="mb-2">
+                        <strong>{{ key|title|replace('_', ' ') }}:</strong> {{ value }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Recommended Actions -->
+            {% if recommendation.actions %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Recommended Actions</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        {% for action in recommendation.actions %}
+                        <li class="mb-2">
+                            <i class="bi bi-arrow-right text-primary me-2"></i>
+                            {% if action is string %}
+                                {{ action }}
+                            {% else %}
+                                {{ action.description or action.title or action }}
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- XAI Explanation -->
+            {% if recommendation.xai_json %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">AI Explanation</h5>
+                </div>
+                <div class="card-body">
+                    {% if recommendation.xai_json.reasoning %}
+                    <div class="mb-3">
+                        <h6>Reasoning</h6>
+                        <p>{{ recommendation.xai_json.reasoning }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if recommendation.xai_json.factors %}
+                    <div class="mb-3">
+                        <h6>Key Factors</h6>
+                        <ul class="list-unstyled">
+                            {% for factor in recommendation.xai_json.factors %}
+                            <li class="mb-1">
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                {{ factor }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    {% if recommendation.xai_json.data_sources %}
+                    <div class="mb-3">
+                        <h6>Data Sources</h6>
+                        <ul class="list-unstyled">
+                            {% for source in recommendation.xai_json.data_sources %}
+                            <li class="mb-1">
+                                <i class="bi bi-database text-muted me-2"></i>
+                                {{ source }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Recommendation Metadata -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Recommendation Information</h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row small">
+                        <dt class="col-sm-5">Type:</dt>
+                        <dd class="col-sm-7">{{ recommendation.type|title }}</dd>
+                        
+                        {% if recommendation.subject_type %}
+                        <dt class="col-sm-5">Subject Type:</dt>
+                        <dd class="col-sm-7">{{ recommendation.subject_type|title }}</dd>
+                        {% endif %}
+                        
+                        {% if recommendation.subject_id %}
+                        <dt class="col-sm-5">Subject ID:</dt>
+                        <dd class="col-sm-7">{{ recommendation.subject_id }}</dd>
+                        {% endif %}
+                        
+                        <dt class="col-sm-5">Created By:</dt>
+                        <dd class="col-sm-7">{{ recommendation.created_by or 'System' }}</dd>
+                        
+                        <dt class="col-sm-5">Created:</dt>
+                        <dd class="col-sm-7">{{ recommendation.created_at.strftime('%Y-%m-%d %H:%M') if recommendation.created_at else 'N/A' }}</dd>
+                        
+                        {% if recommendation.updated_at and recommendation.updated_at != recommendation.created_at %}
+                        <dt class="col-sm-5">Updated:</dt>
+                        <dd class="col-sm-7">{{ recommendation.updated_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+                        {% endif %}
+                        
+                        {% if recommendation.input_hash %}
+                        <dt class="col-sm-5">Input Hash:</dt>
+                        <dd class="col-sm-7">
+                            <code class="small">{{ recommendation.input_hash[:8] }}...</code>
+                        </dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Actions</h6>
+                </div>
+                <div class="card-body d-grid gap-2">
+                    {% if recommendation.status == 'PENDING' %}
+                    <button class="btn btn-success btn-sm" data-action="implement" data-recommendation-id="{{ recommendation.id }}">
+                        <i class="bi bi-check-circle me-1"></i>Implement
+                    </button>
+                    <button class="btn btn-warning btn-sm" data-action="defer" data-recommendation-id="{{ recommendation.id }}">
+                        <i class="bi bi-pause-circle me-1"></i>Defer
+                    </button>
+                    <button class="btn btn-danger btn-sm" data-action="reject" data-recommendation-id="{{ recommendation.id }}">
+                        <i class="bi bi-x-circle me-1"></i>Reject
+                    </button>
+                    {% endif %}
+                    
+                    {% if recommendation.status == 'IN_PROGRESS' %}
+                    <button class="btn btn-success btn-sm" data-action="complete" data-recommendation-id="{{ recommendation.id }}">
+                        <i class="bi bi-check-circle me-1"></i>Mark Complete
+                    </button>
+                    {% endif %}
+                    
+                    <button class="btn btn-outline-primary btn-sm" data-action="report" data-recommendation-id="{{ recommendation.id }}">
+                        <i class="bi bi-file-earmark-text me-1"></i>Generate Report
+                    </button>
+                    
+                    <button class="btn btn-outline-secondary btn-sm" data-action="export" data-recommendation-id="{{ recommendation.id }}">
+                        <i class="bi bi-download me-1"></i>Export Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Related Items -->
+            {% if related_risks %}
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Related Risks</h6>
+                </div>
+                <div class="card-body">
+                    {% for risk in related_risks[:5] %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <div class="fw-bold">{{ risk.title }}</div>
+                            <small class="text-muted">{{ risk.severity|title }} - {{ risk.status|title }}</small>
+                        </div>
+                        <a href="{{ url_for('main.risk_detail', risk_id=risk.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                    </div>
+                    {% endfor %}
+                    {% if related_risks|length > 5 %}
+                    <div class="text-center mt-2">
+                        <a href="{{ url_for('main.risk') }}?recommendation_id={{ recommendation.id }}" class="text-muted">View all {{ related_risks|length }} risks</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Event delegation for action buttons
+    document.addEventListener('click', function(e) {
+        const button = e.target.closest('[data-action]');
+        if (!button) return;
+        
+        const action = button.dataset.action;
+        const recommendationId = button.dataset.recommendationId;
+        
+        switch(action) {
+            case 'implement':
+                implementRecommendation(recommendationId);
+                break;
+            case 'defer':
+                deferRecommendation(recommendationId);
+                break;
+            case 'reject':
+                rejectRecommendation(recommendationId);
+                break;
+            case 'complete':
+                completeRecommendation(recommendationId);
+                break;
+            case 'report':
+                generateReport(recommendationId);
+                break;
+            case 'export':
+                exportData(recommendationId);
+                break;
+        }
+    });
+});
+
+function implementRecommendation(recommendationId) {
+    if (confirm('Implement this recommendation?')) {
+        fetch(`/api/recommendations/${recommendationId}/implement`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                notes: prompt('Implementation notes (optional):') || ''
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Success', 'Recommendation implementation started', 'success');
+                location.reload();
+            } else {
+                showToast('Error', data.message || 'Failed to implement recommendation', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error', 'Failed to implement recommendation', 'error');
+        });
+    }
+}
+
+function deferRecommendation(recommendationId) {
+    const reason = prompt('Reason for deferring (optional):');
+    if (reason !== null) {
+        fetch(`/api/recommendations/${recommendationId}/defer`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                reason: reason
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Success', 'Recommendation deferred', 'success');
+                location.reload();
+            } else {
+                showToast('Error', data.message || 'Failed to defer recommendation', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error', 'Failed to defer recommendation', 'error');
+        });
+    }
+}
+
+function rejectRecommendation(recommendationId) {
+    const reason = prompt('Reason for rejection:');
+    if (reason) {
+        fetch(`/api/recommendations/${recommendationId}/reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                reason: reason
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Success', 'Recommendation rejected', 'success');
+                location.reload();
+            } else {
+                showToast('Error', data.message || 'Failed to reject recommendation', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error', 'Failed to reject recommendation', 'error');
+        });
+    }
+}
+
+function completeRecommendation(recommendationId) {
+    if (confirm('Mark this recommendation as complete?')) {
+        fetch(`/api/recommendations/${recommendationId}/complete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                completion_notes: prompt('Completion notes (optional):') || ''
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Success', 'Recommendation marked as complete', 'success');
+                location.reload();
+            } else {
+                showToast('Error', data.message || 'Failed to complete recommendation', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error', 'Failed to complete recommendation', 'error');
+        });
+    }
+}
+
+function generateReport(recommendationId) {
+    window.open(`/api/recommendations/${recommendationId}/report`, '_blank');
+}
+
+function exportData(recommendationId) {
+    window.location.href = `/api/recommendations/${recommendationId}/export`;
+}
+</script>
+{% endblock %}

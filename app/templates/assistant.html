@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Assistant - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Supply Chain Assistant</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Chat Messages -->
+                    <div class="chat-container" id="chatContainer" style="height: 500px; overflow-y: auto;">
+                        <div class="chat-message assistant-message mb-3">
+                            <div class="d-inline-block p-3 rounded bg-light">
+                                <div class="fw-bold mb-1">Assistant</div>
+                                <div>Hello! I'm your supply chain assistant. I can help you with:</div>
+                                <ul class="mb-0">
+                                    <li>Analyzing risks and disruptions</li>
+                                    <li>Finding route alternatives</li>
+                                    <li>Managing purchase orders</li>
+                                    <li>Explaining recommendations</li>
+                                </ul>
+                                <div class="mt-2">What would you like to know?</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Actions -->
+                    <div class="border-top pt-3 mb-3">
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-sm btn-outline-primary" onclick="askQuestion('What are the current high-risk shipments?')">
+                                High-risk shipments
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="askQuestion('Show me pending approvals')">
+                                Pending approvals
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="askQuestion('What changed in the last 24 hours?')">
+                                Recent changes
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="askQuestion('Analyze supplier performance')">
+                                Supplier analysis
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Input Area -->
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="assistantInput" 
+                               placeholder="Ask me anything about your supply chain..." 
+                               autocomplete="off">
+                        <button class="btn btn-primary" type="button" id="sendButton">
+                            <i class="bi bi-send"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Context Cards -->
+            <div class="row g-3 mt-3">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title">Current Context</h6>
+                            <p class="text-muted mb-0" id="currentContext">No specific context</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title">Active Agents</h6>
+                            <div id="activeAgents">
+                                <span class="badge bg-success">Risk Predictor</span>
+                                <span class="badge bg-success">Route Optimizer</span>
+                                <span class="badge bg-success">Procurement</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title">Last Action</h6>
+                            <p class="text-muted mb-0" id="lastAction">None</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/assistant.js') }}"></script>
+{% endblock %}

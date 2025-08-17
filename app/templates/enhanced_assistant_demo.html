@@ -1,0 +1,466 @@
+![1755273291758](image/enhanced_assistant_demo/1755273291758.png)![1755273378211](image/enhanced_assistant_demo/1755273378211.png)![1755273547142](image/enhanced_assistant_demo/1755273547142.png)![1755273629565](image/enhanced_assistant_demo/1755273629565.png)![1755273832133](image/enhanced_assistant_demo/1755273832133.png)![1755273851255](image/enhanced_assistant_demo/1755273851255.png)<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced AI Assistant - SupplyChainX</title>
+    
+    <!-- Assistant V2 Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/assistant_v2.css') }}">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Base styles -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f8fafc;
+            color: #374151;
+        }
+        
+        .demo-page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .demo-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .demo-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+        }
+        
+        .demo-subtitle {
+            font-size: 1.2rem;
+            color: #6b7280;
+            margin-bottom: 24px;
+        }
+        
+        .demo-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        
+        .feature-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e7eb;
+        }
+        
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            font-size: 20px;
+            color: white;
+        }
+        
+        .feature-icon.memory { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .feature-icon.context { background: linear-gradient(135deg, #10b981, #059669); }
+        .feature-icon.agents { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+        .feature-icon.personalization { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        
+        .feature-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .feature-description {
+            color: #6b7280;
+            line-height: 1.6;
+        }
+        
+        .demo-content {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e7eb;
+        }
+        
+        .demo-section {
+            margin-bottom: 32px;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #374151;
+        }
+        
+        .sample-data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+        
+        .sample-data-table th,
+        .sample-data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .sample-data-table th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-badge.active { background: #d1fae5; color: #065f46; }
+        .status-badge.warning { background: #fef3c7; color: #92400e; }
+        .status-badge.critical { background: #fee2e2; color: #991b1b; }
+        
+        .cta-section {
+            text-align: center;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            margin-top: 40px;
+        }
+        
+        .cta-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        
+        .cta-description {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 24px;
+        }
+        
+        .cta-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .cta-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .assistant-trigger {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s;
+            z-index: 999;
+        }
+        
+        .assistant-trigger:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 24px rgba(102, 126, 234, 0.6);
+        }
+        
+        .assistant-trigger.hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-page">
+        <div class="demo-header">
+            <h1 class="demo-title">Enhanced AI Assistant</h1>
+            <p class="demo-subtitle">Revolutionary supply chain intelligence with persistent memory, context awareness, and expert agent consultation</p>
+        </div>
+        
+        <div class="demo-features">
+            <div class="feature-card">
+                <div class="feature-icon memory">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <h3 class="feature-title">Persistent Memory</h3>
+                <p class="feature-description">Remembers conversations across sessions, learns from interactions, and builds context over time for increasingly personalized assistance.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon context">
+                    <i class="fas fa-map-marker-alt"></i>
+                </div>
+                <h3 class="feature-title">Context Awareness</h3>
+                <p class="feature-description">Automatically understands what page you're on, what data you're viewing, and adapts responses based on your current context.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon agents">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h3 class="feature-title">Expert Agents</h3>
+                <p class="feature-description">Consults specialized agents for risk prediction, route optimization, procurement, and orchestration to provide expert-level insights.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon personalization">
+                    <i class="fas fa-user-cog"></i>
+                </div>
+                <h3 class="feature-title">Personalization</h3>
+                <p class="feature-description">Adapts to your communication style, learns your preferences, and customizes responses based on your expertise level and needs.</p>
+            </div>
+        </div>
+        
+        <div class="demo-content">
+            <div class="demo-section">
+                <h2 class="section-title">📦 Sample Shipment Data</h2>
+                <p>The AI assistant is context-aware and can analyze this data automatically when you ask questions.</p>
+                
+                <table class="sample-data-table" data-entity="shipments">
+                    <thead>
+                        <tr>
+                            <th>Reference</th>
+                            <th>Origin</th>
+                            <th>Destination</th>
+                            <th>Status</th>
+                            <th>ETA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr data-record-id="1">
+                            <td>SCX-2024-001</td>
+                            <td>Shanghai, China</td>
+                            <td>Los Angeles, USA</td>
+                            <td><span class="status-badge active">In Transit</span></td>
+                            <td>2024-01-15</td>
+                        </tr>
+                        <tr data-record-id="2">
+                            <td>SCX-2024-002</td>
+                            <td>Hamburg, Germany</td>
+                            <td>New York, USA</td>
+                            <td><span class="status-badge warning">Delayed</span></td>
+                            <td>2024-01-18</td>
+                        </tr>
+                        <tr data-record-id="3">
+                            <td>SCX-2024-003</td>
+                            <td>Tokyo, Japan</td>
+                            <td>Seattle, USA</td>
+                            <td><span class="status-badge critical">At Risk</span></td>
+                            <td>2024-01-20</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="demo-section">
+                <h2 class="section-title">🏢 Sample Supplier Data</h2>
+                <p>Ask the AI about supplier performance, risk assessment, or procurement recommendations.</p>
+                
+                <table class="sample-data-table" data-entity="suppliers">
+                    <thead>
+                        <tr>
+                            <th>Supplier</th>
+                            <th>Category</th>
+                            <th>Performance</th>
+                            <th>Risk Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr data-record-id="101">
+                            <td>Global Manufacturing Co.</td>
+                            <td>Electronics</td>
+                            <td><span class="status-badge active">Excellent</span></td>
+                            <td><span class="status-badge active">Low</span></td>
+                        </tr>
+                        <tr data-record-id="102">
+                            <td>Pacific Logistics Ltd.</td>
+                            <td>Transportation</td>
+                            <td><span class="status-badge warning">Good</span></td>
+                            <td><span class="status-badge warning">Medium</span></td>
+                        </tr>
+                        <tr data-record-id="103">
+                            <td>Euro Parts Supplier</td>
+                            <td>Components</td>
+                            <td><span class="status-badge critical">Poor</span></td>
+                            <td><span class="status-badge critical">High</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="demo-section">
+                <h2 class="section-title">⚠️ Sample Risk Alerts</h2>
+                <p>The AI can analyze risks and provide mitigation strategies based on current alerts.</p>
+                
+                <table class="sample-data-table" data-entity="alerts">
+                    <thead>
+                        <tr>
+                            <th>Alert Type</th>
+                            <th>Description</th>
+                            <th>Severity</th>
+                            <th>Affected Routes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Weather</td>
+                            <td>Typhoon affecting Pacific shipping lanes</td>
+                            <td><span class="status-badge critical">Critical</span></td>
+                            <td>Asia-Pacific</td>
+                        </tr>
+                        <tr>
+                            <td>Geopolitical</td>
+                            <td>Trade restrictions on electronics</td>
+                            <td><span class="status-badge warning">Medium</span></td>
+                            <td>US-China</td>
+                        </tr>
+                        <tr>
+                            <td>Supplier</td>
+                            <td>Quality issues at Euro Parts Supplier</td>
+                            <td><span class="status-badge warning">Medium</span></td>
+                            <td>Europe-Global</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="cta-section">
+            <h2 class="cta-title">Try the Enhanced AI Assistant</h2>
+            <p class="cta-description">Experience the future of supply chain intelligence. Click the AI button to start a conversation!</p>
+            <button class="cta-button" onclick="showAssistant()">
+                <i class="fas fa-robot"></i> Start Conversation
+            </button>
+        </div>
+    </div>
+    
+    <!-- Assistant V2 Panel (embedded for demo) -->
+    <div id="ai-assistant-v2" class="minimized connected" aria-label="AI Assistant" aria-live="polite">
+        <div class="assistant-header">
+            <div class="left">
+                <div class="status-dot" aria-hidden="true"></div>
+                <strong class="title">AI Assistant</strong>
+                <span class="context-label" title="Context">Demo</span>
+            </div>
+            <div class="right">
+                <button class="icon btn-min" type="button" title="Minimize"><i class="fas fa-minus"></i></button>
+            </div>
+        </div>
+        <div class="assistant-body">
+            <div class="messages" role="log" aria-live="polite"></div>
+            <div class="typing" hidden><div class="dots"><span></span><span></span><span></span></div><span>AI is thinking...</span></div>
+        </div>
+        <div class="assistant-footer">
+            <div class="input-row">
+                <textarea placeholder="Ask me anything about your supply chain..." aria-label="Message input"></textarea>
+                <button class="send" type="button" title="Send"><i class="fas fa-paper-plane"></i></button>
+            </div>
+            <div class="hint">
+                <span>💡 Shipments, suppliers, risks, routes, analytics</span>
+                <span>⌘K focus</span>
+            </div>
+        </div>
+    </div>
+    <div id="assistantTriggerV2"><button type="button" title="Open AI Assistant"><i class="fas fa-robot"></i></button></div>
+    
+    <!-- Assistant V2 JS -->
+    <script src="{{ url_for('static', filename='js/assistant_v2.js') }}"></script>
+    
+    <script>
+        // Demo page functionality
+        function showAssistant() {
+            const assistantContainer = document.getElementById('ai-assistant-container');
+            if (assistantContainer) {
+                assistantContainer.classList.remove('minimized');
+                assistantContainer.style.display = 'flex';
+            }
+            
+            const trigger = document.querySelector('.assistant-trigger');
+            if (trigger) {
+                trigger.classList.add('hidden');
+            }
+        }
+        
+    // Legacy toggle removed – V2 uses internal toggle method
+        
+        // Add sample context data attributes for the AI to detect
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add page type attribute
+            document.body.setAttribute('data-page-type', 'demo');
+            document.body.setAttribute('data-page-title', 'Enhanced AI Assistant Demo');
+            
+            // Add chart data simulation
+            const chartContainer = document.createElement('div');
+            chartContainer.setAttribute('data-chart-type', 'performance');
+            chartContainer.setAttribute('data-chart-title', 'Supply Chain Performance');
+            chartContainer.style.display = 'none';
+            document.body.appendChild(chartContainer);
+            
+            // Simulate dynamic data updates
+            setInterval(() => {
+                const tables = document.querySelectorAll('table[data-entity]');
+                tables.forEach(table => {
+                    const timestamp = new Date().toISOString();
+                    table.setAttribute('data-last-updated', timestamp);
+                });
+            }, 30000); // Update every 30 seconds
+        });
+        
+        // Sample suggestions for users to try
+        const sampleQueries = [
+            "What's the status of shipment SCX-2024-002?",
+            "Which suppliers have high risk levels?",
+            "Show me recent alerts affecting Pacific routes",
+            "How is Global Manufacturing Co. performing?",
+            "What's causing the delay in SCX-2024-002?",
+            "Generate a risk assessment report",
+            "Which shipments are at risk?",
+            "Compare supplier performance",
+            "Show analytics for this month",
+            "What recommendations do you have?"
+        ];
+        
+        // Add sample query suggestions to the page
+        window.sampleQueries = sampleQueries;
+        
+        console.log('Enhanced AI Assistant Demo Page Loaded');
+        console.log('Sample queries you can try:', sampleQueries);
+    </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ supplier.name }} - SupplyChainX</title>
+</head>
+<body>
+    <h1>{{ supplier.name }}</h1>
+    <p>Country: {{ supplier.country or 'Not specified' }}</p>
+    <p>City: {{ supplier.city or 'Not specified' }}</p>
+    <p>Health Score: {{ supplier.health_score or 'N/A' }}</p>
+    <p>Status: {{ 'Active' if supplier.is_active else 'Inactive' }}</p>
+</body>
+</html>

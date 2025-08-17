@@ -1,0 +1,72 @@
+# Core Framework
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Flask-SocketIO==5.3.5
+Flask-CORS==4.0.0
+Flask-Login==0.6.3
+
+# Database
+SQLAlchemy==2.0.23
+alembic==1.13.0
+
+# Redis
+redis==5.0.1
+hiredis==2.3.2
+
+# WebSocket
+python-socketio==5.10.0
+python-engineio==4.8.0
+eventlet==0.33.3
+
+# IBM watsonx (compatible with langchain-ibm==0.1.0)
+ibm-watsonx-ai==0.1.8
+langchain==0.1.0
+langchain-ibm==0.1.0
+
+# Data Processing
+pandas==2.1.4
+numpy==1.26.2
+scikit-learn==1.3.2
+
+# HTTP Clients
+requests==2.31.0
+httpx==0.28.1
+aiohttp==3.9.1
+
+# Geospatial
+polyline==2.0.2
+geopy==2.4.1
+
+# Utilities
+python-dateutil==2.8.2
+python-dotenv==1.0.0
+pytz==2023.3
+validators==0.22.0
+
+# Testing
+pytest==7.4.3
+pytest-flask==1.3.0
+pytest-cov==4.1.0
+pytest-asyncio==0.23.2
+faker==20.1.0
+pytest-playwright==0.4.3
+playwright==1.45.0
+
+# Development
+black==23.12.0
+flake8==6.1.0
+pylint==3.0.3
+mypy==1.7.1
+
+# Documentation
+flask-swagger-ui==4.11.1
+flasgger==0.9.7.1
+
+# Multi-carrier shipping integration via Karrio
+karrio==2023.9.2
+karrio.ups==2023.9.2
+karrio.fedex==2023.9.2
+karrio.dhl_express==2023.9.2
+
+# PDF processing (replace deprecated PyPDF2)
+pypdf==4.2.0

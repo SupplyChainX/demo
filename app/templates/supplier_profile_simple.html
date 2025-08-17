@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}{{ supplier.name }} - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1>{{ supplier.name }}</h1>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Basic Information</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Name:</strong> {{ supplier.name }}</p>
+                    <p><strong>Country:</strong> {{ supplier.country or 'Not specified' }}</p>
+                    <p><strong>City:</strong> {{ supplier.city or 'Not specified' }}</p>
+                    <p><strong>Health Score:</strong> {{ supplier.health_score or 'N/A' }}</p>
+                    <p><strong>Reliability Score:</strong> {{ supplier.reliability_score or 'N/A' }}</p>
+                    <p><strong>Active:</strong> {{ 'Yes' if supplier.is_active else 'No' }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Contact Information</h5>
+                </div>
+                <div class="card-body">
+                    {% if supplier.contact_info %}
+                        {% if supplier.contact_info.email %}
+                            <p><strong>Email:</strong> {{ supplier.contact_info.email }}</p>
+                        {% endif %}
+                        {% if supplier.contact_info.phone %}
+                            <p><strong>Phone:</strong> {{ supplier.contact_info.phone }}</p>
+                        {% endif %}
+                        {% if supplier.contact_info.address %}
+                            <p><strong>Address:</strong> {{ supplier.contact_info.address }}</p>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted">No contact information available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Status</h5>
+                </div>
+                <div class="card-body">
+                    <p>Supplier profile loaded successfully!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

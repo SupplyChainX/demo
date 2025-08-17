@@ -1,0 +1,524 @@
+{% extends "base.html" %}
+
+{% block title %}Agent Management Dashboard - SupplyChainX{% endblock %}
+
+{% block extra_head %}
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
+<style>
+    .agent-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    .agent-card.agent-active {
+        border-left-color: #28a745;
+        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1);
+    }
+    .agent-card.agent-inactive {
+        border-left-color: #dc3545;
+        box-shadow: 0 2px 8px rgba(220, 53, 69, 0.1);
+    }
+    .agent-card.agent-warning {
+        border-left-color: #ffc107;
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.1);
+    }
+    
+    .health-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+    .health-good { background-color: #28a745; }
+    .health-warning { background-color: #ffc107; }
+    .health-critical { background-color: #dc3545; }
+    
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+    }
+    
+    .communication-flow {
+        position: relative;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin: 10px 0;
+    }
+    
+    .flow-arrow {
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 24px;
+        color: #007bff;
+    }
+    
+    .performance-chart {
+        height: 200px;
+    }
+    
+    .agent-control-btn {
+        min-width: 80px;
+    }
+    
+    .system-health-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: bold;
+        color: white;
+        margin: 0 auto;
+    }
+    
+    .recommendations-panel {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .agent-timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .agent-timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #dee2e6;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -23px;
+        top: 5px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #007bff;
+    }
+    
+    .insight-card {
+        border-left: 4px solid #007bff;
+        background: #f8f9fa;
+    }
+    
+    .analytics-badge {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">🤖 AI Agent Management Dashboard</h1>
+            <p class="text-muted mb-0">Unified monitoring and control interface for intelligent agents</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" id="refreshDashboard">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+            <button class="btn btn-success" id="startAllAgents">
+                <i class="bi bi-play-fill"></i> Start All
+            </button>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-gear"></i> Settings
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#configModal">Configuration</a></li>
+                    <li><a class="dropdown-item" href="#" id="exportLogs">Export Logs</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#" id="systemDiagnostics">System Diagnostics</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Overview Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card metric-card h-100">
+                <div class="card-body text-center">
+                    <div class="system-health-circle" id="systemHealthCircle">
+                        <span id="systemHealthScore">--</span>%
+                    </div>
+                    <h6 class="mt-3 mb-0">System Health</h6>
+                    <small class="opacity-75" id="systemHealthStatus">Checking...</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted mb-1">Active Agents</h6>
+                            <h3 class="mb-0" id="activeAgentsCount">--</h3>
+                            <small class="text-muted">of <span id="totalAgentsCount">--</span> total</small>
+                        </div>
+                        <i class="bi bi-robot fs-1 text-primary opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted mb-1">Messages/Hour</h6>
+                            <h3 class="mb-0" id="messagesPerHour">--</h3>
+                            <small class="text-success">
+                                <i class="bi bi-arrow-up"></i> +12% from yesterday
+                            </small>
+                        </div>
+                        <i class="bi bi-chat-dots fs-1 text-success opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted mb-1">Recommendations</h6>
+                            <h3 class="mb-0" id="totalRecommendations">--</h3>
+                            <small class="text-muted">
+                                <span class="text-warning" id="pendingRecommendations">--</span> pending
+                            </small>
+                        </div>
+                        <i class="bi bi-lightbulb fs-1 text-warning opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content Tabs -->
+    <div class="card">
+        <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs" id="dashboardTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="agents-tab" data-bs-toggle="tab" data-bs-target="#agents" type="button" role="tab">
+                        <i class="bi bi-robot"></i> Agents
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="communication-tab" data-bs-toggle="tab" data-bs-target="#communication" type="button" role="tab">
+                        <i class="bi bi-arrow-left-right"></i> Communication
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="recommendations-tab" data-bs-toggle="tab" data-bs-target="#recommendations" type="button" role="tab">
+                        <i class="bi bi-lightbulb"></i> Recommendations
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button" role="tab">
+                        <i class="bi bi-graph-up"></i> Analytics
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs" type="button" role="tab">
+                        <i class="bi bi-list-ul"></i> Activity Logs
+                    </button>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body">
+            <div class="tab-content" id="dashboardTabContent">
+                <!-- Agents Tab -->
+                <div class="tab-pane fade show active" id="agents" role="tabpanel">
+                    <div class="row g-3" id="agentsContainer">
+                        <div class="col-12 text-center py-4">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading agents...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Loading agent status...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Communication Tab -->
+                <div class="tab-pane fade" id="communication" role="tabpanel">
+                    <div class="row g-3">
+                        <div class="col-lg-8">
+                            <h5>Inter-Agent Communication Flow</h5>
+                            <div id="communicationFlows">
+                                <div class="text-center py-4">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Loading communication data...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <h5>Performance Metrics</h5>
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Average Latency</span>
+                                            <strong id="avgLatency">-- ms</strong>
+                                        </div>
+                                        <div class="progress mt-1" style="height: 4px;">
+                                            <div class="progress-bar bg-info" id="latencyBar" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Throughput</span>
+                                            <strong id="throughput">-- msg/min</strong>
+                                        </div>
+                                        <div class="progress mt-1" style="height: 4px;">
+                                            <div class="progress-bar bg-success" id="throughputBar" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Error Rate</span>
+                                            <strong id="errorRate">--%</strong>
+                                        </div>
+                                        <div class="progress mt-1" style="height: 4px;">
+                                            <div class="progress-bar bg-danger" id="errorRateBar" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card mt-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Active Channels</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="activeChannels">
+                                        <div class="text-center py-2">
+                                            <small class="text-muted">Loading...</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recommendations Tab -->
+                <div class="tab-pane fade" id="recommendations" role="tabpanel">
+                    <div class="row g-3">
+                        <div class="col-lg-8">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5>AI Recommendations Management</h5>
+                                <div class="btn-group" role="group">
+                                    <input type="radio" class="btn-check" name="recFilter" id="recAll" checked>
+                                    <label class="btn btn-outline-secondary btn-sm" for="recAll">All</label>
+                                    <input type="radio" class="btn-check" name="recFilter" id="recPending">
+                                    <label class="btn btn-outline-secondary btn-sm" for="recPending">Pending</label>
+                                    <input type="radio" class="btn-check" name="recFilter" id="recApproved">
+                                    <label class="btn btn-outline-secondary btn-sm" for="recApproved">Approved</label>
+                                </div>
+                            </div>
+                            <div class="recommendations-panel" id="recommendationsPanel">
+                                <div class="text-center py-4">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Loading recommendations...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <h5>Agent Performance</h5>
+                            <div id="agentPerformanceCards">
+                                <div class="text-center py-4">
+                                    <small class="text-muted">Loading performance data...</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Analytics Tab -->
+                <div class="tab-pane fade" id="analytics" role="tabpanel">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5>🧠 AI-Powered Analytics & Insights</h5>
+                                <span class="analytics-badge">ML-Enhanced</span>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="card insight-card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">System Insights</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="systemInsights">
+                                        <div class="text-center py-3">
+                                            <div class="spinner-border spinner-border-sm" role="status"></div>
+                                            <p class="mt-2 mb-0 small text-muted">Analyzing system performance...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="card insight-card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Optimization Suggestions</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="optimizationSuggestions">
+                                        <div class="text-center py-3">
+                                            <div class="spinner-border spinner-border-sm" role="status"></div>
+                                            <p class="mt-2 mb-0 small text-muted">Generating recommendations...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Predictive Analytics</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <canvas id="efficiencyForecastChart" class="performance-chart"></canvas>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <canvas id="resourceOptimizationChart" class="performance-chart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Activity Logs Tab -->
+                <div class="tab-pane fade" id="logs" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5>Activity Timeline</h5>
+                        <div class="d-flex gap-2">
+                            <select class="form-select form-select-sm" id="logFilter" style="width: auto;">
+                                <option value="">All Activities</option>
+                                <option value="agent_start">Agent Starts</option>
+                                <option value="agent_stop">Agent Stops</option>
+                                <option value="recommendation">Recommendations</option>
+                                <option value="error">Errors</option>
+                            </select>
+                            <button class="btn btn-outline-secondary btn-sm" id="clearLogs">Clear</button>
+                        </div>
+                    </div>
+                    <div class="agent-timeline" id="activityTimeline">
+                        <div class="text-center py-4">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading activity logs...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Agent Performance Modal -->
+<div class="modal fade" id="agentPerformanceModal" tabindex="-1" aria-labelledby="agentPerformanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="agentPerformanceModalLabel">Agent Performance Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <canvas id="agentResponseTimeChart" height="200"></canvas>
+                    </div>
+                    <div class="col-md-6">
+                        <canvas id="agentThroughputChart" height="200"></canvas>
+                    </div>
+                    <div class="col-12">
+                        <canvas id="agentTrendsChart" height="150"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Configuration Modal -->
+<div class="modal fade" id="configModal" tabindex="-1" aria-labelledby="configModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="configModalLabel">Agent Configuration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="configForm">
+                    <div class="mb-3">
+                        <label for="refreshInterval" class="form-label">Refresh Interval (seconds)</label>
+                        <input type="number" class="form-control" id="refreshInterval" value="30" min="5" max="300">
+                    </div>
+                    <div class="mb-3">
+                        <label for="maxRetries" class="form-label">Max Retries</label>
+                        <input type="number" class="form-control" id="maxRetries" value="3" min="1" max="10">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="autoRestart" checked>
+                            <label class="form-check-label" for="autoRestart">
+                                Auto-restart on failure
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="detailedLogging">
+                            <label class="form-check-label" for="detailedLogging">
+                                Enable detailed logging
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveConfig">Save Configuration</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/agent-dashboard.js') }}"></script>
+{% endblock %}

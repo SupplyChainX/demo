@@ -1,0 +1,964 @@
+{% extends "base.html" %}
+
+{% block title %}Shipment: {{ shipment.tracking_number }} - SupplyChainX{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    .timeline {
+        position: relative;
+        padding: 20px 0;
+    }
+    .timeline-item {
+        position: relative;
+        padding-left: 40px;
+        margin-bottom: 20px;
+    }
+    .timeline-marker {
+        position: absolute;
+        left: 0;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        background-color: #007bff;
+        border-radius: 50%;
+    }
+    .timeline-item:not(:last-child)::before {
+        content: '';
+        position: absolute;
+        left: 5px;
+        top: 17px;
+        width: 2px;
+        height: calc(100% + 8px);
+        background-color: #dee2e6;
+    }
+    .stepper {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+    }
+    .step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+    }
+    .step:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        width: 100%;
+        height: 2px;
+        background-color: #dee2e6;
+        z-index: -1;
+    }
+    .step.active::after {
+        background-color: #007bff;
+    }
+    .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #dee2e6;
+        color: #6c757d;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    .step.active .step-number {
+        background-color: #007bff;
+        color: white;
+    }
+    .step-title {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    .step.active .step-title {
+        color: #212529;
+        font-weight: 500;
+    }
+    .route-option {
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .route-option:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .route-option.selected {
+        border-color: #0d6efd !important;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    .custom-div-icon {
+        background: transparent;
+        border: none;
+    }
+    #routeMap {
+        height: 500px;
+        width: 100%;
+    }
+    /* Route list scroll container */
+    #routeList {
+        max-height: 500px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('main.logistics') }}">Logistics</a></li>
+            <li class="breadcrumb-item active">{{ shipment.tracking_number }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3">
+                Shipment: 
+                {% if shipment.reference_number %}
+                    <span class="text-muted ms-2"><strong>{{ shipment.reference_number }}</strong></span>
+                {% endif %}
+                {% if shipment.risk_score > 0.7 %}
+                    {% set badge_color = 'danger' %}
+                {% elif shipment.risk_score > 0.5 %}
+                    {% set badge_color = 'warning' %}
+                {% else %}
+                    {% set badge_color = 'success' %}
+                {% endif %}
+                <span class="badge bg-{{ badge_color }} ms-2">Risk: {{ "%.0f"|format(shipment.risk_score * 100) }}%</span>
+            </h1>
+        </div>
+        <div class="col-auto">
+            {% if shipment.risk_score > 0.5 and shipment.status in ['planned', 'in_transit'] %}
+            <button class="btn btn-warning" id="rerouteBtn">
+                <i class="bi bi-shuffle"></i> Re-route Shipment
+            </button>
+            {% endif %}
+            <button class="btn btn-outline-primary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Print
+            </button>
+            <button class="btn btn-outline-primary" id="editShipmentBtn" type="button" data-bs-toggle="modal" data-bs-target="#editShipmentModal">
+                <i class="bi bi-file-earmark-richtext"></i> Edit
+            </button>
+        </div>
+    </div>
+
+    <!-- Risk Alert -->
+    {% if shipment.risk_score > 0.7 %}
+    <div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <div>
+            <strong>High Risk Detected!</strong> This shipment has a risk score of {{ "%.2f"|format(shipment.risk_score) }}.
+            {% if recommendations %}Consider reviewing route alternatives.{% endif %}
+        </div>
+    </div>
+    {% elif shipment.risk_score > 0.5 %}
+    <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        <div>
+            <strong>Medium Risk:</strong> Risk score is {{ "%.2f"|format(shipment.risk_score) }}.
+            Route optimization may be beneficial.
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-tabs mb-4" id="shipmentTabs" role="tablist" aria-orientation="horizontal">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab" aria-controls="overview" aria-selected="true">
+                Overview
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="route-tab" data-bs-toggle="tab" data-bs-target="#route" type="button" role="tab" aria-controls="route" aria-selected="false">
+                Route
+                {% if alternative_routes %}
+                <span class="badge bg-info ms-1">{{ alternative_routes|length }}</span>
+                {% endif %}
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="documents-tab" data-bs-toggle="tab" data-bs-target="#documents" type="button" role="tab" aria-controls="documents" aria-selected="false">
+                Documents
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="timeline-tab" data-bs-toggle="tab" data-bs-target="#timeline" type="button" role="tab" aria-controls="timeline" aria-selected="false">
+                Timeline
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="alerts-tab" data-bs-toggle="tab" data-bs-target="#alerts" type="button" role="tab" aria-controls="alerts" aria-selected="false">
+                Related Alerts
+                {% if shipment.alerts %}
+                <span class="badge bg-danger ms-1">{{ shipment.alerts|length }}</span>
+                {% endif %}
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="shipmentTabContent">
+        <!-- Overview Tab -->
+        <div class="tab-pane fade show active" id="overview" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Shipment Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Tracking Number:</div>
+                                <div class="col-7"><strong>{{ shipment.tracking_number }}</strong></div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Status:</div>
+                                <div class="col-7">
+                                    {% set status_value = shipment.status %}
+                                    <span class="badge bg-{{ 'success' if status_value == 'DELIVERED' else 'primary' if status_value == 'IN_TRANSIT' else 'secondary' }}">
+                                        {{ status_value.replace('_', ' ').title() }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Carrier:</div>
+                                <div class="col-7">{{ shipment.carrier_name or 'Not specified' }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Origin:</div>
+                                <div class="col-7">{{ shipment.origin }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Destination:</div>
+                                <div class="col-7">{{ shipment.destination }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Current Location:</div>
+                                <div class="col-7">{{ shipment.current_location or 'In transit' }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">ETA:</div>
+                                <div class="col-7">
+                                    {% if shipment.eta %}
+                                        {{ shipment.eta.strftime('%Y-%m-%d %H:%M') }}
+                                        {% if days_remaining != 'N/A' and days_remaining > 0 %}
+                                            <small class="text-muted">({{ days_remaining }} days)</small>
+                                        {% endif %}
+                                    {% else %}
+                                        TBD
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Risk Score:</div>
+                                <div class="col-7">
+                                    <div class="progress progress-risk">
+                                        <div class="progress-bar bg-{{ badge_color }}" 
+                                             data-risk-width="{{ (shipment.risk_score * 100)|int }}">
+                                            {{ "%.2f"|format(shipment.risk_score) }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Mode:</div>
+                                <div class="col-7">{{ shipment.transport_mode or (current_route.route_type if current_route) or 'N/A' }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Container #:</div>
+                                <div class="col-7">{{ shipment.container_number or container_number or 'N/A' }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Containers:</div>
+                                <div class="col-7">{{ shipment.container_count or items_count or 'N/A' }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Weight:</div>
+                                <div class="col-7">{{ shipment.weight_tons ~ ' tons' if shipment.weight_tons else weight_kg }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Cargo Value:</div>
+                                <div class="col-7">${{ "{:,.0f}".format(shipment.cargo_value_usd) if shipment.cargo_value_usd else ("{:,.0f}".format(total_value) if total_value else 'N/A') }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Description:</div>
+                                <div class="col-7">{{ shipment.description or cargo_type or 'N/A' }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-6">
+                    {% if current_route %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Current Route Metrics</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Route Type:</div>
+                                <div class="col-7">{{ current_route.route_type.upper() }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Distance:</div>
+                                <div class="col-7">{{ "{:,.0f}".format(current_route.distance_km) }} km</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Duration:</div>
+                                <div class="col-7">{{ "{:,.0f}".format(current_route.estimated_duration_hours) }} hours</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Cost:</div>
+                                <div class="col-7">${{ "{:,.2f}".format(current_route.cost_usd) }}</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-5 text-muted">Emissions:</div>
+                                <div class="col-7">{{ "{:,.1f}".format(current_route.carbon_emissions_kg / 1000) }} tCO₂e</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Active Recommendations -->
+                    {% if recommendations %}
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Active Recommendations</h5>
+                        </div>
+                        <div class="card-body">
+                            {% for rec in recommendations %}
+                            <div class="alert alert-info d-flex flex-column flex-md-row justify-content-between align-items-start gap-2 mb-2">
+                                <div class="flex-grow-1">
+                                    <i class="bi bi-lightbulb me-2"></i>
+                                    <strong>{{ rec['recommendation_type'].replace('_', ' ').title() if rec.get('recommendation_type') else 'Recommendation' }}:</strong> 
+                                    {{ rec.get('description', '') }}
+                                    <br>
+                                    <small class="text-muted">Confidence: {{ "%.0f"|format(rec.get('confidence', 0) * 100) }}%</small>
+                                    {% set xai = rec.get('xai', {}) %}
+                                    {% if xai or rec.get('rationale') %}
+                                    <div class="mt-2">
+                                        <span class="text-muted small text-uppercase d-block mb-1">AI Factors</span>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            {% for f in (xai.get('factors') or [])[:6] %}
+                                                <span class="badge bg-secondary-subtle border text-secondary-emphasis">{{ f }}</span>
+                                            {% endfor %}
+                                            {% if xai.get('improvements') %}
+                                                {% for k,v in xai.get('improvements').items() %}
+                                                    {% if v %}
+                                                    <span class="badge bg-light border text-muted">{{ k.replace('_',' ') }}: {{ v }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% endif %}
+                                            {% if not xai.get('factors') and rec.get('rationale') %}
+                                                <span class="badge bg-info-subtle border text-info-emphasis">Rationale Available</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mt-1">
+                                    <button class="btn btn-sm btn-outline-info me-2 explain-btn" data-explain-id="{{ rec.get('id', 0) }}">Explain</button>
+                                    {% if rec.get('status') == 'PENDING' %}
+                                    <button class="btn btn-sm btn-success approve-btn" data-approve-id="{{ rec.get('id', 0) }}">Approve</button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Route Tab -->
+        <div class="tab-pane fade" id="route" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-8">
+                    <!-- Map Container -->
+
+
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Route Map</h5>
+                            <div class="btn-group" role="group">
+                                <!-- Embed leaflet map
+                                     Show current route line on map
+                                     Show alternatives lines on map   
+                                     Click on a route to highliight it with basic metrics 
+                                     # Show alternatives toggle button shows line and off
+                                    Toggle button states: Show Alternative/Hide Alternatives
+                                -->
+                                <input type="checkbox" class="btn-check" id="showAlternatives" autocomplete="off" aria-label="Toggle alternative routes">
+                                <label class="btn btn-outline-primary btn-sm" for="showAlternatives">Show Alternatives</label>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="routeMap"></div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+
+                <div class="col-lg-4">
+
+
+
+
+                    
+
+
+                    <!-- Unified All Routes List (current + alternatives) -->
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">All Routes</h5>
+                            <div>
+                                <button class="btn btn-sm btn-primary" id="addRouteBtn" data-bs-toggle="modal" data-bs-target="#routeModal">
+                                    <i class="bi bi-plus"></i> Add Route
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="routeList" class="list-group list-group-flush overflow-auto">
+                                <!-- Populated by shipment.js:updateRouteList -->
+                            </div>
+                        </div>
+                    </div>
+
+                    
+
+                    
+                </div>
+            </div>
+                        <!-- Route Comparison Table -->
+            {% if current_route or alternative_routes %}
+            <div class="card mt-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-0 d-inline">Route Comparison</h5>
+                            </div>
+                            {% if current_route %}
+                            <button class="btn btn-sm btn-outline-secondary optimize-route-btn" data-shipment-id="{{ shipment.id }}">
+                                <i class="bi bi-arrow-repeat"></i> Optimize Route
+                            </button>
+                            {% endif %}
+                        </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="routes-table">
+                            <thead>
+                                <tr>
+                                    <th>Route</th>
+                                    <th>Type</th>
+                                    <th>Distance</th>
+                                    <th>Duration</th>
+                                    <th>Cost</th>
+                                    <th>Emissions</th>
+                                    <th>Risk Score</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if current_route %}
+                                <tr class="table-active">
+                                    <td>
+                                        <strong>Current Route</strong>
+                                        {% if current_route.name %}
+                                        <br><small class="text-muted">{{ current_route.name }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ current_route.route_type.upper() }}</td>
+                                    <td>{{ "{:,.0f}".format(current_route.distance_km) }} km</td>
+                                    <td>{{ "{:,.0f}".format(current_route.estimated_duration_hours) }} hrs</td>
+                                    <td>${{ "{:,.0f}".format(current_route.cost_usd) }}</td>
+                                    <td>{{ "{:,.1f}".format(current_route.carbon_emissions_kg / 1000) }} tCO₂e</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if current_route.risk_score > 0.7 else 'warning' if current_route.risk_score > 0.5 else 'success' }}">
+                                            {{ "%.2f"|format(current_route.risk_score) }}
+                                        </span>
+                                    </td>
+                                    <td>-</td>
+                                </tr>
+                                {% endif %}
+                                {% for route in alternative_routes %}
+                                <tr>
+                                    <td>
+                                        {{ route.name or 'Alternative ' + loop.index|string }}
+                                        {% if route.is_recommended %}
+                                        <span class="badge bg-success ms-1">Recommended</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ route.route_type.upper() }}</td>
+                                    <td>
+                                        {{ "{:,.0f}".format(route.distance_km) }} km
+                                        {% if current_route %}
+                                        <small class="text-{{ 'danger' if route.distance_km > current_route.distance_km else 'success' }}">
+                                            ({{ "{:+,.0f}".format(route.distance_km - current_route.distance_km) }})
+                                        </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ "{:,.0f}".format(route.estimated_duration_hours) }} hrs
+                                        {% if current_route %}
+                                        <small class="text-{{ 'danger' if route.estimated_duration_hours > current_route.estimated_duration_hours else 'success' }}">
+                                            ({{ "{:+,.0f}".format(route.estimated_duration_hours - current_route.estimated_duration_hours) }})
+                                        </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        ${{ "{:,.0f}".format(route.cost_usd) }}
+                                        {% if current_route %}
+                                        <small class="text-{{ 'danger' if route.cost_usd > current_route.cost_usd else 'success' }}">
+                                            ({{ "{:+,.0f}".format(route.cost_usd - current_route.cost_usd) }})
+                                        </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ "{:,.1f}".format(route.carbon_emissions_kg / 1000) }} tCO₂e
+                                        {% if current_route %}
+                                        <small class="text-{{ 'danger' if route.carbon_emissions_kg > current_route.carbon_emissions_kg else 'success' }}">
+                                            ({{ "{:+,.1f}".format((route.carbon_emissions_kg - current_route.carbon_emissions_kg) / 1000) }})
+                                        </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if route.risk_score > 0.7 else 'warning' if route.risk_score > 0.5 else 'success' }}">
+                                            {{ "%.2f"|format(route.risk_score) }}
+                                        </span>
+                                        {% if current_route %}
+                                        <small class="text-{{ 'danger' if route.risk_score > current_route.risk_score else 'success' }}">
+                                            ({{ "{:+.2f}".format(route.risk_score - current_route.risk_score) }})
+                                        </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary select-route-btn" data-route-id="{{ route.id }}">
+                                            Select
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+
+
+
+
+
+        </div>
+
+        <!-- Documents Tab -->
+        <div class="tab-pane fade" id="documents" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Documents</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted text-center">No documents available for this shipment.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline Tab -->
+        <div class="tab-pane fade" id="timeline" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Shipment Timeline</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h6>Shipment Created</h6>
+                                <p class="text-muted mb-0">{{ shipment.created_at.strftime('%Y-%m-%d %H:%M') if shipment.created_at else 'Unknown' }}</p>
+                            </div>
+                        </div>
+                        {% if shipment.status == 'in_transit' and shipment.actual_departure %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h6>Departed Origin</h6>
+                                <p class="text-muted mb-0">{{ shipment.actual_departure.strftime('%Y-%m-%d %H:%M') }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if shipment.updated_at and shipment.updated_at != shipment.created_at %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h6>Last Updated</h6>
+                                <p class="text-muted mb-0">{{ shipment.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Related Alerts Tab -->
+        <div class="tab-pane fade" id="alerts" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Related Alerts</h5>
+                </div>
+                <div class="card-body">
+                    {% if shipment.alerts %}
+                    <div class="list-group">
+                        {% for alert in shipment.alerts %}
+                        <a href="{{ url_for('main.alert_detail', id=alert.id) }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ alert.title }}</h6>
+                                <small>{{ alert.created_at.strftime('%Y-%m-%d %H:%M') if alert.created_at else '' }}</small>
+                            </div>
+                            <p class="mb-1">{{ alert.description }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small>
+                                    <span class="badge bg-{{ 'danger' if alert.severity == 'high' or alert.severity == 'critical' else 'warning' if alert.severity == 'medium' else 'info' }}">
+                                        {{ alert.severity|title }}
+                                    </span>
+                                    <span class="badge bg-secondary ms-1">{{ alert.type|title }}</span>
+                                </small>
+                                <small class="text-muted">
+                                    Affects {{ alert.affected_entities|length }} entities
+                                </small>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">No alerts associated with this shipment.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reroute Modal -->
+<div class="modal fade" id="rerouteModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Route Optimization</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Stepper -->
+                <div class="stepper mb-4">
+                    <div class="step active" data-step="1">
+                        <div class="step-number">1</div>
+                        <div class="step-title">Choose Alternative</div>
+                    </div>
+                    <div class="step" data-step="2">
+                        <div class="step-number">2</div>
+                        <div class="step-title">Cost/ETA Analysis</div>
+                    </div>
+                    <div class="step" data-step="3">
+                        <div class="step-number">3</div>
+                        <div class="step-title">Compliance Check</div>
+                    </div>
+                    <div class="step" data-step="4">
+                        <div class="step-number">4</div>
+                        <div class="step-title">Review & Confirm</div>
+                    </div>
+                </div>
+
+                <!-- Step Content -->
+                <div id="stepContent">
+                    <!-- Content will be loaded dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary d-none" id="prevStep">Previous</button>
+                <button type="button" class="btn btn-primary" id="nextStep">Next</button>
+                <button type="button" class="btn btn-success d-none" id="confirmReroute">Confirm Reroute</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Route Modal -->
+<div class="modal fade" id="routeModal" tabindex="-1" aria-labelledby="routeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="routeModalLabel">Add Route</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="routeForm" class="row g-3">
+                    <input type="hidden" id="routeId" />
+                    <div class="col-md-6">
+                        <label class="form-label">Name</label>
+                        <input type="text" id="routeName" class="form-control" placeholder="e.g., Via Singapore" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Type</label>
+                        <select id="routeType" class="form-select">
+                            <option value="SEA">SEA</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <div class="form-check me-3">
+                            <input class="form-check-input" type="checkbox" id="isCurrent">
+                            <label class="form-check-label" for="isCurrent">Make Current</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="isRecommended">
+                            <label class="form-check-label" for="isRecommended">Recommended</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Distance (km)</label>
+                        <input type="number" step="0.1" id="distanceKm" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Duration (hrs)</label>
+                        <input type="number" step="0.1" id="durationHours" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Cost (USD)</label>
+                        <input type="number" step="0.01" id="costUsd" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Emissions (kg)</label>
+                        <input type="number" step="0.1" id="emissionsKg" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Risk Score (0-1)</label>
+                        <input type="number" step="0.01" min="0" max="1" id="riskScore" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Waypoints (JSON)</label>
+                        <textarea id="waypointsJson" class="form-control" rows="6" placeholder='[
+    {"lat": <number>, "lon": <number>, "name": "Origin", "type": "origin"},
+    {"lat": <number>, "lon": <number>, "name": "Waypoint", "type": "waypoint"},
+    {"lat": <number>, "lon": <number>, "name": "Destination", "type": "destination"}
+]'></textarea>
+                        <div class="form-text">Provide an array of waypoint objects. Origin and destination should be included.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveRouteBtn">Save Route</button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+<!-- Explanation Modal -->
+<div class="modal fade" id="explanationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Recommendation Explanation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="explanationContent">
+                <!-- Explanation will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+
+<!-- Edit Shipment Modal -->
+<div class="modal fade" id="editShipmentModal" tabindex="-1" aria-labelledby="editShipmentLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editShipmentLabel">Edit Shipment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editShipmentForm" class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Reference #</label>
+                        <input type="text" name="reference_number" class="form-control" value="{{ shipment.reference_number }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Carrier</label>
+                        <input type="text" name="carrier" class="form-control" value="{{ shipment.carrier or '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Transport Mode</label>
+                        <select name="transport_mode" class="form-select">
+                            {% set tm = shipment.transport_mode or (current_route.route_type if current_route) or 'SEA' %}
+                            {% for mode in ['SEA','AIR'] %}
+                            <option value="{{ mode }}" {% if tm==mode %}selected{% endif %}>{{ mode }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Origin Port</label>
+                        <input type="text" name="origin_port" class="form-control" value="{{ shipment.origin_port or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Destination Port</label>
+                        <input type="text" name="destination_port" class="form-control" value="{{ shipment.destination_port or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Scheduled Departure</label>
+                        <input type="datetime-local" name="scheduled_departure" class="form-control" value="{{ shipment.scheduled_departure.strftime('%Y-%m-%dT%H:%M') if shipment.scheduled_departure }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Scheduled Arrival</label>
+                        <input type="datetime-local" name="scheduled_arrival" class="form-control" value="{{ shipment.scheduled_arrival.strftime('%Y-%m-%dT%H:%M') if shipment.scheduled_arrival }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Actual Departure</label>
+                        <input type="datetime-local" name="actual_departure" class="form-control" value="{{ shipment.actual_departure.strftime('%Y-%m-%dT%H:%M') if shipment.actual_departure }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Actual Arrival</label>
+                        <input type="datetime-local" name="actual_arrival" class="form-control" value="{{ shipment.actual_arrival.strftime('%Y-%m-%dT%H:%M') if shipment.actual_arrival }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Status</label>
+                        {% set st = shipment.status if shipment.status else 'planned' %}
+                        <select name="status" class="form-select">
+                            {% for s in ['planned','in_transit','delayed','delivered','cancelled'] %}
+                            <option value="{{ s }}" {% if st==s %}selected{% endif %}>{{ s.replace('_',' ').title() }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Risk Score</label>
+                        <input type="number" step="0.01" min="0" max="1" name="risk_score" class="form-control" value="{{ shipment.risk_score or 0 }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Weight (tons)</label>
+                        <input type="number" step="0.01" name="weight_tons" class="form-control" value="{{ shipment.weight_tons or '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Cargo Value (USD)</label>
+                        <input type="number" step="0.01" name="cargo_value_usd" class="form-control" value="{{ shipment.cargo_value_usd or '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Container #</label>
+                        <input type="text" name="container_number" class="form-control" value="{{ shipment.container_number or '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Container Count</label>
+                        <input type="number" name="container_count" class="form-control" value="{{ shipment.container_count or '' }}">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="2">{{ shipment.description or '' }}</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveShipmentBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{# Remove inline JS object property Jinja issues by embedding pre-built dictionaries #}
+<script id="shipment-route-data" type="application/json">{{ {
+    'shipment': {
+        'id': shipment.id,
+        'trackingNumber': shipment.reference_number or shipment.id,
+        'origin': {
+            'lat': shipment.origin_lat or 0,
+            'lon': shipment.origin_lon or 0,
+            'name': shipment.origin_port or 'Origin'
+        },
+        'destination': {
+            'lat': shipment.destination_lat or 0,
+            'lon': shipment.destination_lon or 0,
+            'name': shipment.destination_port or 'Destination'
+        },
+        'currentLocation': ( {'lat': shipment.current_lat, 'lon': shipment.current_lon} if shipment.current_lat and shipment.current_lon else None )
+    },
+    'routes': {
+        'current': current_route,
+        'alternatives': alternative_routes
+    }
+} | tojson }}</script>
+<script>
+    // Parse embedded shipment & route data
+    (function(){
+        let parsed = { shipment: {}, routes: { current: null, alternatives: [] } };
+        try {
+            const dataEl = document.getElementById('shipment-route-data');
+            if (dataEl) parsed = JSON.parse(dataEl.textContent || '{}');
+        } catch (e) { /* fallback already set */ }
+        window.shipmentData = parsed.shipment || {};
+        window.routeData = parsed.routes || { current: null, alternatives: [] };
+    })();
+</script>
+<script src="{{ url_for('static', filename='js/shipment.js') }}"></script>
+<script>
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeShipmentPage();
+        document.querySelectorAll('.progress-bar[data-risk-width]').forEach(el => {
+            const w = el.getAttribute('data-risk-width');
+            if (w) el.style.width = w + '%';
+        });
+            const saveBtn = document.getElementById('saveShipmentBtn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', async () => {
+                    const form = document.getElementById('editShipmentForm');
+                    const fd = new FormData(form);
+                    const payload = Object.fromEntries(fd.entries());
+                    // Remove empty strings
+                    Object.keys(payload).forEach(k=>{ if(payload[k]==='') delete payload[k]; });
+                    try {
+                        const resp = await fetch(`/api/shipments/${window.shipmentData.id}`, {
+                            method:'PUT',
+                            headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await resp.json();
+                        if (!resp.ok) throw new Error(data.error||'Update failed');
+                        showToast('Shipment Updated','Changes saved successfully','success');
+                        setTimeout(()=>window.location.reload(), 800);
+                    } catch(e){
+                        showToast('Update Failed', e.message, 'error');
+                    }
+                });
+            }
+    });
+
+    // Additional functions for route selection
+    function selectRoute(routeId) {
+        selectedRoute = routeId;
+        startRerouteProcess();
+    }
+
+    // Helper function to get CSRF token
+    function getCsrfToken() {
+        const token = document.querySelector('meta[name="csrf-token"]');
+        return token ? token.getAttribute('content') : '';
+    }
+</script>
+{% endblock %}

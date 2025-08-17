@@ -1,0 +1,399 @@
+{% extends "base.html" %}
+
+{% block title %}{{ risk.title }} - Risk Detail - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.risk') }}">Risk Overview</a></li>
+                    <li class="breadcrumb-item active">{{ risk.title }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">{{ risk.title }}</h1>
+            <p class="text-muted mb-0">{{ risk.risk_type|title }} Risk - {{ risk.geographic_scope|title if risk.geographic_scope else 'Unknown Scope' }}</p>
+        </div>
+        <div>
+            <span class="badge bg-{{ 'danger' if risk.severity == 'critical' else 'warning' if risk.severity == 'high' else 'info' if risk.severity == 'medium' else 'secondary' }} me-2">
+                {{ risk.severity|title }}
+            </span>
+            <span class="badge bg-{{ 'success' if risk.status == 'resolved' else 'warning' if risk.status == 'mitigated' else 'danger' if risk.status == 'identified' else 'primary' }}">
+                {{ risk.status|title }}
+            </span>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Risk Details -->
+        <div class="col-lg-8">
+            <!-- Risk Summary -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Risk Assessment</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h2 mb-0 text-{{ 'danger' if risk.risk_score > 0.7 else 'warning' if risk.risk_score > 0.4 else 'info' }}">
+                                    {{ "%.1f"|format(risk.risk_score * 100) }}%
+                                </div>
+                                <small class="text-muted">Risk Score</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h2 mb-0 text-primary">
+                                    {{ "%.0f"|format(risk.probability * 100) if risk.probability else 'N/A' }}%
+                                </div>
+                                <small class="text-muted">Probability</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h2 mb-0 text-success">
+                                    {{ "%.0f"|format(risk.confidence * 100) if risk.confidence else 'N/A' }}%
+                                </div>
+                                <small class="text-muted">Confidence</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h2 mb-0 text-info">
+                                    {{ risk.estimated_duration or 'N/A' }}
+                                </div>
+                                <small class="text-muted">Est. Duration (hrs)</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if risk.description %}
+                    <div class="mb-3">
+                        <h6>Description</h6>
+                        <p>{{ risk.description }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if risk.location %}
+                    <div class="mb-3">
+                        <h6>Location</h6>
+                        <p>
+                            {% if risk.location.description %}
+                                {{ risk.location.description }}
+                            {% endif %}
+                            {% if risk.location.lat and risk.location.lon %}
+                                <small class="text-muted">({{ "%.4f"|format(risk.location.lat) }}, {{ "%.4f"|format(risk.location.lon) }})</small>
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Impact Assessment -->
+            {% if risk.impact_assessment %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Impact Assessment</h5>
+                </div>
+                <div class="card-body">
+                    {% for key, value in risk.impact_assessment.items() %}
+                    <div class="mb-2">
+                        <strong>{{ key|title|replace('_', ' ') }}:</strong> {{ value }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Mitigation Strategies -->
+            {% if risk.mitigation_strategies %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Mitigation Strategies</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        {% for strategy in risk.mitigation_strategies %}
+                        <li class="mb-2">
+                            <i class="bi bi-arrow-right text-primary me-2"></i>
+                            {% if strategy is string %}
+                                {{ strategy }}
+                            {% else %}
+                                {{ strategy.description or strategy.title or strategy }}
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Affected Entities -->
+            {% if affected_shipments or affected_suppliers %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Affected Entities</h5>
+                </div>
+                <div class="card-body">
+                    {% if affected_shipments %}
+                    <h6>Affected Shipments</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Reference</th>
+                                    <th>Route</th>
+                                    <th>Status</th>
+                                    <th>ETA</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for shipment in affected_shipments %}
+                                <tr>
+                                    <td>{{ shipment.reference }}</td>
+                                    <td>{{ shipment.origin }} → {{ shipment.destination }}</td>
+                                    <td><span class="badge bg-primary">{{ shipment.status }}</span></td>
+                                    <td>{{ shipment.eta.strftime('%Y-%m-%d %H:%M') if shipment.eta else 'TBD' }}</td>
+                                    <td>
+                                        <a href="{{ url_for('main.shipment_detail', shipment_id=shipment.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+
+                    {% if affected_suppliers %}
+                    <h6>Affected Suppliers</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Supplier</th>
+                                    <th>Country</th>
+                                    <th>Reliability</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for supplier in affected_suppliers %}
+                                <tr>
+                                    <td>{{ supplier.name }}</td>
+                                    <td>{{ supplier.country or 'N/A' }}</td>
+                                    <td>{{ supplier.reliability_score or 'N/A' }}%</td>
+                                    <td>
+                                        <a href="{{ url_for('main.supplier_profile', supplier_id=supplier.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Risk Metadata -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Risk Information</h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row small">
+                        <dt class="col-sm-5">Risk Type:</dt>
+                        <dd class="col-sm-7">{{ risk.risk_type|title }}</dd>
+                        
+                        <dt class="col-sm-5">Time Horizon:</dt>
+                        <dd class="col-sm-7">{{ risk.time_horizon|title if risk.time_horizon else 'N/A' }}</dd>
+                        
+                        <dt class="col-sm-5">Geographic Scope:</dt>
+                        <dd class="col-sm-7">{{ risk.geographic_scope|title if risk.geographic_scope else 'N/A' }}</dd>
+                        
+                        <dt class="col-sm-5">Created By:</dt>
+                        <dd class="col-sm-7">{{ risk.created_by_agent|title if risk.created_by_agent else 'System' }}</dd>
+                        
+                        <dt class="col-sm-5">Created:</dt>
+                        <dd class="col-sm-7">{{ risk.created_at.strftime('%Y-%m-%d %H:%M') if risk.created_at else 'N/A' }}</dd>
+                        
+                        {% if risk.updated_at and risk.updated_at != risk.created_at %}
+                        <dt class="col-sm-5">Updated:</dt>
+                        <dd class="col-sm-7">{{ risk.updated_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+                        {% endif %}
+                        
+                        {% if risk.resolved_at %}
+                        <dt class="col-sm-5">Resolved:</dt>
+                        <dd class="col-sm-7">{{ risk.resolved_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Data Sources -->
+            {% if risk.data_sources %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Data Sources</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        {% for source in risk.data_sources %}
+                        <li class="mb-1">
+                            <i class="bi bi-database text-muted me-2"></i>
+                            {{ source if source is string else source.name or source.api }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Actions</h6>
+                </div>
+                <div class="card-body d-grid gap-2">
+                    {% if risk.status != 'resolved' %}
+                    <button class="btn btn-success btn-sm" data-action="resolve" data-risk-id="{{ risk.id }}">
+                        <i class="bi bi-check-circle me-1"></i>Mark Resolved
+                    </button>
+                    {% endif %}
+                    
+                    {% if risk.status == 'identified' %}
+                    <button class="btn btn-warning btn-sm" data-action="mitigate" data-risk-id="{{ risk.id }}">
+                        <i class="bi bi-shield-check me-1"></i>Start Mitigation
+                    </button>
+                    {% endif %}
+                    
+                    <button class="btn btn-outline-primary btn-sm" data-action="report" data-risk-id="{{ risk.id }}">
+                        <i class="bi bi-file-earmark-text me-1"></i>Generate Report
+                    </button>
+                    
+                    <button class="btn btn-outline-secondary btn-sm" data-action="export" data-risk-id="{{ risk.id }}">
+                        <i class="bi bi-download me-1"></i>Export Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Related Alerts -->
+            {% if related_alerts %}
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Related Alerts</h6>
+                </div>
+                <div class="card-body">
+                    {% for alert in related_alerts[:5] %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <div class="fw-bold">{{ alert.title }}</div>
+                            <small class="text-muted">{{ alert.created_at.strftime('%m/%d %H:%M') if alert.created_at }}</small>
+                        </div>
+                        <a href="{{ url_for('main.threat_detail', alert_id=alert.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                    </div>
+                    {% endfor %}
+                    {% if related_alerts|length > 5 %}
+                    <div class="text-center mt-2">
+                        <a href="{{ url_for('main.alerts') }}?risk_id={{ risk.id }}" class="text-muted">View all {{ related_alerts|length }} alerts</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Event delegation for action buttons
+    document.addEventListener('click', function(e) {
+        const button = e.target.closest('[data-action]');
+        if (!button) return;
+        
+        const action = button.dataset.action;
+        const riskId = button.dataset.riskId;
+        
+        switch(action) {
+            case 'resolve':
+                markResolved(riskId);
+                break;
+            case 'mitigate':
+                startMitigation(riskId);
+                break;
+            case 'report':
+                generateReport(riskId);
+                break;
+            case 'export':
+                exportData(riskId);
+                break;
+        }
+    });
+});
+
+function markResolved(riskId) {
+    if (confirm('Mark this risk as resolved?')) {
+        fetch(`/api/risks/${riskId}/resolve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                resolution_notes: prompt('Resolution notes (optional):') || ''
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Success', 'Risk marked as resolved', 'success');
+                location.reload();
+            } else {
+                showToast('Error', data.message || 'Failed to resolve risk', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error', 'Failed to resolve risk', 'error');
+        });
+    }
+}
+
+function startMitigation(riskId) {
+    if (confirm('Start mitigation process for this risk?')) {
+        fetch(`/api/risks/${riskId}/mitigate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Success', 'Mitigation process started', 'success');
+                location.reload();
+            } else {
+                showToast('Error', data.message || 'Failed to start mitigation', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error', 'Failed to start mitigation', 'error');
+        });
+    }
+}
+
+function generateReport(riskId) {
+    window.open(`/api/risks/${riskId}/report`, '_blank');
+}
+
+function exportData(riskId) {
+    window.location.href = `/api/risks/${riskId}/export`;
+}
+</script>
+{% endblock %}

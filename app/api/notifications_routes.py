@@ -1,0 +1,169 @@
+"""
+Notifications API routes
+"""
+
+from flask import Blueprint, jsonify, request
+from flask_login import login_required, current_user
+from datetime import datetime, timedelta
+from app import db
+from app.models import Alert, AlertRead
+
+notifications_bp = Blueprint('notifications', __name__)
+
+@notifications_bp.route('/api/notifications/unread-count', methods=['GET'])
+def get_unread_count():
+    """Get count of unread alerts for current user"""
+    try:
+        # For demo purposes, use a default user or get from request
+        user_id = request.args.get('user_id', 'demo_user')
+        
+        # Get all open alerts
+        open_alerts = Alert.query.filter(Alert.status.in_(['open', 'active'])).all()
+        
+        # Get read alert IDs for this user
+        read_alert_ids = [ar.alert_id for ar in AlertRead.query.filter_by(user_id=user_id).all()]
+        
+        # Count unread alerts
+        unread_count = sum(1 for alert in open_alerts if alert.id not in read_alert_ids)
+        
+        return jsonify({
+            'unread_count': unread_count,
+            'user_id': user_id
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@notifications_bp.route('/api/notifications/recent', methods=['GET'])
+def get_recent_notifications():
+    """Get recent unread alerts for notifications dropdown"""
+    try:
+        limit = request.args.get('limit', 5, type=int)
+        user_id = request.args.get('user_id', 'demo_user')
+        
+        # Get all open/active alerts first
+        open_alerts = Alert.query.filter(Alert.status.in_(['open', 'active'])).order_by(Alert.created_at.desc()).all()
+        
+        # Get read alert IDs for this user
+        read_alert_ids = [ar.alert_id for ar in AlertRead.query.filter_by(user_id=user_id).all()]
+        
+        # Filter out read alerts and apply limit
+        unread_alerts = [alert for alert in open_alerts if alert.id not in read_alert_ids][:limit]
+        
+        notifications = []
+        for alert in unread_alerts:
+            notifications.append({
+                'id': alert.id,
+                'title': alert.title,
+                'description': alert.description[:100] + '...' if len(alert.description or '') > 100 else alert.description,
+                'severity': alert.severity,
+                'type': alert.type,
+                'created_at': alert.created_at.isoformat(),
+                'time_ago': format_time_ago(alert.created_at)
+            })
+        
+        return jsonify({'notifications': notifications})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@notifications_bp.route('/api/notifications/<int:alert_id>/mark-read', methods=['POST'])
+def mark_alert_read(alert_id):
+    """Mark an alert as read by current user"""
+    try:
+        # Handle both form data and JSON data, or empty request
+        user_id = None
+        if request.content_type == 'application/json':
+            json_data = request.get_json(silent=True) or {}
+            user_id = json_data.get('user_id')
+        else:
+            user_id = request.form.get('user_id') or request.args.get('user_id')
+        
+        # Default user for demo
+        if not user_id:
+            user_id = 'demo_user'
+        
+        # Check if alert exists
+        alert = Alert.query.get_or_404(alert_id)
+        
+        # Check if already marked as read
+        existing_read = AlertRead.query.filter_by(
+            alert_id=alert_id,
+            user_id=user_id
+        ).first()
+        
+        if not existing_read:
+            # Mark as read
+            alert_read = AlertRead(
+                alert_id=alert_id,
+                user_id=user_id
+            )
+            db.session.add(alert_read)
+            db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Alert marked as read'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@notifications_bp.route('/api/notifications/mark-all-read', methods=['POST'])
+def mark_all_read():
+    """Mark all open alerts as read by current user"""
+    try:
+        # Handle both form data and JSON data, or empty request
+        user_id = None
+        if request.content_type == 'application/json':
+            json_data = request.get_json(silent=True) or {}
+            user_id = json_data.get('user_id')
+        else:
+            user_id = request.form.get('user_id') or request.args.get('user_id')
+        
+        # Default user for demo
+        if not user_id:
+            user_id = 'demo_user'
+        
+        # Get all open alerts that haven't been read by user
+        unread_alert_ids = db.session.query(Alert.id).filter(
+            Alert.status.in_(['open', 'active']),
+            ~Alert.id.in_(
+                db.session.query(AlertRead.alert_id).filter(
+                    AlertRead.user_id == user_id
+                )
+            )
+        ).all()
+        
+        # Create read records for all unread alerts
+        for (alert_id,) in unread_alert_ids:
+            alert_read = AlertRead(
+                alert_id=alert_id,
+                user_id=user_id
+            )
+            db.session.add(alert_read)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Marked {len(unread_alert_ids)} alerts as read'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+def format_time_ago(dt):
+    """Format datetime as time ago string"""
+    now = datetime.utcnow()
+    diff = now - dt
+    
+    if diff.days > 0:
+        return f"{diff.days}d ago"
+    elif diff.seconds > 3600:
+        hours = diff.seconds // 3600
+        return f"{hours}h ago"
+    elif diff.seconds > 60:
+        minutes = diff.seconds // 60
+        return f"{minutes}m ago"
+    else:
+        return "Just now"

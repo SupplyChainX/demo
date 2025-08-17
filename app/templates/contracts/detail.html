@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}Contract {{ contract.contract_number }} - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-1">Contract Details</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{{ url_for('main.procurement') }}">Procurement</a></li>
+                            <li class="breadcrumb-item active">Contract {{ contract.contract_number }}</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div>
+                    <button class="btn btn-outline-primary me-2" onclick="editContract({{ contract.id }})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <a href="{{ url_for('main.procurement') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Procurement
+                    </a>
+                </div>
+            </div>
+
+            <!-- Contract Information Card -->
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-file-contract me-2"></i>
+                                {{ contract.name }}
+                            </h5>
+                            <span class="badge {% if contract.status == 'active' %}bg-success{% elif contract.status == 'pending' %}bg-warning{% elif contract.status == 'expired' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                {{ contract.status|title }}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">Contract Information</h6>
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <td><strong>Contract Number:</strong></td>
+                                            <td>{{ contract.contract_number }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Supplier:</strong></td>
+                                            <td>
+                                                {% if contract.supplier %}
+                                                    {{ contract.supplier.name }}
+                                                {% else %}
+                                                    <span class="text-muted">No supplier assigned</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Payment Terms:</strong></td>
+                                            <td>{{ contract.payment_terms or 'Not specified' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Minimum Order Value:</strong></td>
+                                            <td>${{ "{:,.2f}".format(contract.minimum_order_value or 0) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Auto Renew:</strong></td>
+                                            <td>
+                                                {% if contract.auto_renew %}
+                                                    <span class="badge bg-success">Yes</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">No</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">Contract Dates</h6>
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <td><strong>Start Date:</strong></td>
+                                            <td>{{ contract.start_date.strftime('%B %d, %Y') if contract.start_date else 'Not set' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>End Date:</strong></td>
+                                            <td>{{ contract.end_date.strftime('%B %d, %Y') if contract.end_date else 'Not set' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Created:</strong></td>
+                                            <td>{{ contract.created_at.strftime('%B %d, %Y at %I:%M %p') if contract.created_at else 'Unknown' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Days to Expiry:</strong></td>
+                                            <td>
+                                                {% if contract.end_date %}
+                                                    <!-- We'll calculate this in JavaScript -->
+                                                    <span id="days-to-expiry" data-end-date="{{ contract.end_date.isoformat() }}">
+                                                        Calculating...
+                                                    </span>
+                                                {% else %}
+                                                    <span class="text-muted">No end date</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions Card -->
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-cogs me-2"></i>
+                                Actions
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-primary" onclick="editContract({{ contract.id }})">
+                                    <i class="fas fa-edit me-2"></i>Edit Contract
+                                </button>
+                                {% if contract.auto_renew %}
+                                <button class="btn btn-warning" onclick="disableAutoRenew({{ contract.id }})">
+                                    <i class="fas fa-times me-2"></i>Disable Auto-Renew
+                                </button>
+                                {% else %}
+                                <button class="btn btn-success" onclick="enableAutoRenew({{ contract.id }})">
+                                    <i class="fas fa-check me-2"></i>Enable Auto-Renew
+                                </button>
+                                {% endif %}
+                                <button class="btn btn-info" onclick="renewContract({{ contract.id }})">
+                                    <i class="fas fa-redo me-2"></i>Renew Contract
+                                </button>
+                                <hr>
+                                <button class="btn btn-outline-danger" onclick="terminateContract({{ contract.id }})">
+                                    <i class="fas fa-ban me-2"></i>Terminate Contract
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Related Information -->
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-link me-2"></i>
+                                Related Information
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <small class="text-muted">Purchase Orders</small>
+                                <div class="mt-1">
+                                    <span class="badge bg-info">View Related POs</span>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted">Supplier Performance</small>
+                                <div class="mt-1">
+                                    <span class="badge bg-info">View Performance</span>
+                                </div>
+                            </div>
+                            <div>
+                                <small class="text-muted">Contract History</small>
+                                <div class="mt-1">
+                                    <span class="badge bg-info">View History</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contract Management Modals would go here -->
+<script>
+// Calculate days to expiry on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const element = document.getElementById('days-to-expiry');
+    if (element && element.dataset.endDate) {
+        const endDate = new Date(element.dataset.endDate);
+        const today = new Date();
+        const timeDiff = endDate.getTime() - today.getTime();
+        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        
+        let badgeClass = 'bg-secondary';
+        let text = daysDiff + ' days';
+        
+        if (daysDiff > 30) {
+            badgeClass = 'bg-success';
+        } else if (daysDiff > 7) {
+            badgeClass = 'bg-warning';
+        } else if (daysDiff >= 0) {
+            badgeClass = 'bg-danger';
+        } else {
+            badgeClass = 'bg-dark';
+            text = 'Expired';
+        }
+        
+        element.innerHTML = `<span class="badge ${badgeClass}">${text}</span>`;
+    }
+});
+
+function editContract(contractId) {
+    // TODO: Implement edit contract modal
+    alert('Edit contract functionality coming soon!');
+}
+
+function enableAutoRenew(contractId) {
+    if (confirm('Enable auto-renewal for this contract?')) {
+        // TODO: Implement API call
+        alert('Auto-renewal enabled!');
+    }
+}
+
+function disableAutoRenew(contractId) {
+    if (confirm('Disable auto-renewal for this contract?')) {
+        // TODO: Implement API call
+        alert('Auto-renewal disabled!');
+    }
+}
+
+function renewContract(contractId) {
+    if (confirm('Create a renewal for this contract?')) {
+        // TODO: Implement API call
+        alert('Contract renewal created!');
+    }
+}
+
+function terminateContract(contractId) {
+    if (confirm('Are you sure you want to terminate this contract? This action cannot be undone.')) {
+        // TODO: Implement API call
+        alert('Contract terminated!');
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,1254 @@
+{% extends "base.html" %}
+
+{% block title %}Policy Engine Interface - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">Policy Engine Interface</h1>
+            <p class="text-muted">Advanced policy management, testing & business rule configuration</p>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newPolicyModal">
+                <i class="bi bi-plus-circle"></i> New Policy
+            </button>
+            <button class="btn btn-outline-secondary" onclick="refreshAnalytics()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+            <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#policyWizardModal">
+                <i class="bi bi-magic"></i> Configuration Wizard
+            </button>
+        </div>
+    </div>
+
+    <!-- Policy Analytics Dashboard -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <i class="bi bi-shield-check fs-1 text-primary"></i>
+                    <h5 class="mt-2">Total Policies</h5>
+                    <h3 class="mb-0" id="totalPolicies">-</h3>
+                    <small class="text-muted">Active policies managed</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <i class="bi bi-check-circle fs-1 text-success"></i>
+                    <h5 class="mt-2">Compliance Rate</h5>
+                    <h3 class="mb-0" id="complianceRate">-</h3>
+                    <small class="text-muted">Average compliance score</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <i class="bi bi-graph-up fs-1 text-info"></i>
+                    <h5 class="mt-2">Policy Coverage</h5>
+                    <h3 class="mb-0" id="policyCoverage">-</h3>
+                    <small class="text-muted">Business processes covered</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <i class="bi bi-exclamation-triangle fs-1 text-warning"></i>
+                    <h5 class="mt-2">Recent Violations</h5>
+                    <h3 class="mb-0" id="recentViolations">-</h3>
+                    <small class="text-muted">Last 30 days</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Policy Performance Charts -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Policy Type Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="policyTypeChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Compliance Trends</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="complianceTrendsChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Policy Filters and Search -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h5 class="mb-0">Policy Management</h5>
+                </div>
+                <div class="col-auto">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="policySearch" placeholder="Search policies...">
+                        <select class="form-select" id="policyTypeFilter">
+                            <option value="">All Types</option>
+                            <option value="procurement">Procurement</option>
+                            <option value="risk_management">Risk Management</option>
+                            <option value="compliance">Compliance</option>
+                            <option value="sustainability">Sustainability</option>
+                        </select>
+                        <select class="form-select" id="policyStatusFilter">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table" id="policiesTable">
+                    <thead>
+                        <tr>
+                            <th>Policy Name</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Performance Score</th>
+                            <th>Last Triggered</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Will be populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Policy Testing & Validation -->
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Policy Testing Lab</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Select Policy to Test</label>
+                        <select class="form-select" id="testPolicySelect">
+                            <option value="">Choose a policy...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Test Scenario</label>
+                        <select class="form-select" id="testScenarioType">
+                            <option value="purchase_order">Purchase Order</option>
+                            <option value="shipment">Shipment</option>
+                            <option value="supplier">Supplier Evaluation</option>
+                            <option value="custom">Custom Scenario</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="testParameters">
+                        <!-- Dynamic test parameters based on scenario -->
+                    </div>
+                    <button class="btn btn-primary" onclick="runPolicyTest()">
+                        <i class="bi bi-play-circle"></i> Run Test
+                    </button>
+                    <div id="testResults" class="mt-3" style="display: none;">
+                        <!-- Test results will appear here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Business Rule Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Use the Configuration Wizard to set up business rules with guided assistance.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Quick Rule Templates</label>
+                        <div class="list-group">
+                            <button class="list-group-item list-group-item-action" onclick="applyTemplate('spend_threshold')">
+                                <strong>Spend Threshold</strong><br>
+                                <small>Require approval for purchases above amount</small>
+                            </button>
+                            <button class="list-group-item list-group-item-action" onclick="applyTemplate('dual_approval')">
+                                <strong>Dual Approval</strong><br>
+                                <small>Require two approvers for high-risk items</small>
+                            </button>
+                            <button class="list-group-item list-group-item-action" onclick="applyTemplate('supplier_scoring')">
+                                <strong>Supplier Scoring</strong><br>
+                                <small>Evaluate suppliers based on performance metrics</small>
+                            </button>
+                            <button class="list-group-item list-group-item-action" onclick="applyTemplate('geo_restriction')">
+                                <strong>Geographic Restriction</strong><br>
+                                <small>Restrict operations by geographic region</small>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced New Policy Modal -->
+<div class="modal fade" id="newPolicyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Policy</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newPolicyForm">
+                    <div class="mb-3">
+                        <label class="form-label">Policy Name</label>
+                        <input type="text" class="form-control" name="name" placeholder="Enter policy name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Type</label>
+                        <select class="form-select" name="type" title="Select policy type" required>
+                            <option value="">Select type...</option>
+                            <option value="procurement">Procurement</option>
+                            <option value="risk_management">Risk Management</option>
+                            <option value="compliance">Compliance</option>
+                            <option value="sustainability">Sustainability</option>
+                            <option value="spend_threshold">Spend Threshold</option>
+                            <option value="geo_restriction">Geographic Restriction</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3" placeholder="Describe the policy purpose and scope" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rules (JSON Configuration)</label>
+                        <textarea class="form-control font-monospace" name="rules" rows="8" 
+                                  placeholder='{"threshold": 50000, "approvers": 2, "conditions": []}'></textarea>
+                        <div class="form-text">Enter policy rules in JSON format. Use the Configuration Wizard for guided setup.</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_active" checked>
+                            <label class="form-check-label">
+                                Activate policy immediately
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createPolicy()">Create Policy</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Business Rule Configuration Wizard Modal -->
+<div class="modal fade" id="policyWizardModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Business Rule Configuration Wizard</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <nav class="nav nav-pills flex-column" id="wizardTabs">
+                            <a class="nav-link active" id="step1-tab" data-bs-toggle="pill" href="#step1">
+                                <i class="bi bi-1-circle"></i> Policy Type
+                            </a>
+                            <a class="nav-link" id="step2-tab" data-bs-toggle="pill" href="#step2">
+                                <i class="bi bi-2-circle"></i> Conditions
+                            </a>
+                            <a class="nav-link" id="step3-tab" data-bs-toggle="pill" href="#step3">
+                                <i class="bi bi-3-circle"></i> Actions
+                            </a>
+                            <a class="nav-link" id="step4-tab" data-bs-toggle="pill" href="#step4">
+                                <i class="bi bi-4-circle"></i> Testing
+                            </a>
+                            <a class="nav-link" id="step5-tab" data-bs-toggle="pill" href="#step5">
+                                <i class="bi bi-5-circle"></i> Review
+                            </a>
+                        </nav>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="tab-content">
+                            <!-- Step 1: Policy Type -->
+                            <div class="tab-pane fade show active" id="step1">
+                                <h6>Select Policy Type</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="card policy-type-card" data-type="spend_threshold">
+                                            <div class="card-body text-center">
+                                                <i class="bi bi-currency-dollar fs-2 text-primary"></i>
+                                                <h6 class="mt-2">Spend Threshold</h6>
+                                                <p class="small text-muted">Control spending limits and approval requirements</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card policy-type-card" data-type="dual_approval">
+                                            <div class="card-body text-center">
+                                                <i class="bi bi-people fs-2 text-success"></i>
+                                                <h6 class="mt-2">Dual Approval</h6>
+                                                <p class="small text-muted">Require multiple approvers for high-risk items</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card policy-type-card" data-type="supplier_scoring">
+                                            <div class="card-body text-center">
+                                                <i class="bi bi-star fs-2 text-warning"></i>
+                                                <h6 class="mt-2">Supplier Scoring</h6>
+                                                <p class="small text-muted">Evaluate and score supplier performance</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card policy-type-card" data-type="geo_restriction">
+                                            <div class="card-body text-center">
+                                                <i class="bi bi-geo-alt fs-2 text-danger"></i>
+                                                <h6 class="mt-2">Geographic Restriction</h6>
+                                                <p class="small text-muted">Control operations by geographic region</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Step 2: Conditions -->
+                            <div class="tab-pane fade" id="step2">
+                                <h6>Configure Conditions</h6>
+                                <div id="conditionsContainer">
+                                    <!-- Dynamic conditions based on policy type -->
+                                </div>
+                            </div>
+                            
+                            <!-- Step 3: Actions -->
+                            <div class="tab-pane fade" id="step3">
+                                <h6>Define Actions</h6>
+                                <div id="actionsContainer">
+                                    <!-- Dynamic actions based on policy type -->
+                                </div>
+                            </div>
+                            
+                            <!-- Step 4: Testing -->
+                            <div class="tab-pane fade" id="step4">
+                                <h6>Test Policy Configuration</h6>
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> Test your policy with sample scenarios to ensure it works as expected.
+                                </div>
+                                <div id="wizardTestContainer">
+                                    <!-- Test scenarios -->
+                                </div>
+                            </div>
+                            
+                            <!-- Step 5: Review -->
+                            <div class="tab-pane fade" id="step5">
+                                <h6>Review and Create</h6>
+                                <div id="policyReview">
+                                    <!-- Policy summary for review -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-outline-secondary" id="wizardPrev" onclick="previousStep()">Previous</button>
+                <button type="button" class="btn btn-primary" id="wizardNext" onclick="nextStep()">Next</button>
+                <button type="button" class="btn btn-success" id="wizardCreate" onclick="createPolicyFromWizard()" style="display: none;">Create Policy</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Test Policy Modal -->
+<div class="modal fade" id="testPolicyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Advanced Policy Testing</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Test Scenario Type</label>
+                    <select class="form-select" id="testObjectType" title="Select test scenario type">
+                        <option value="purchase_order">Purchase Order Scenario</option>
+                        <option value="shipment">Shipment Scenario</option>
+                        <option value="supplier">Supplier Evaluation Scenario</option>
+                        <option value="custom">Custom Scenario</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3" id="scenarioParameters">
+                    <!-- Dynamic parameters based on scenario type -->
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Expected Outcome</label>
+                    <select class="form-select" id="expectedOutcome">
+                        <option value="pass">Should Pass (No Action Required)</option>
+                        <option value="trigger">Should Trigger (Action Required)</option>
+                        <option value="reject">Should Reject (Block Action)</option>
+                    </select>
+                </div>
+                
+                <div id="advancedTestResult" class="alert d-none">
+                    <!-- Detailed test results -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="runAdvancedPolicyTest()">
+                    <i class="bi bi-play-circle"></i> Run Advanced Test
+                </button>
+                <button type="button" class="btn btn-outline-info" onclick="generateTestReport()">
+                    <i class="bi bi-file-text"></i> Generate Report
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let currentPolicyId = null;
+    let wizardStep = 1;
+    let wizardData = {};
+    let policiesData = [];
+    let analyticsData = {};
+    
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        loadPolicyAnalytics();
+        loadPolicies();
+        setupEventListeners();
+        initializeCharts();
+    });
+    
+    function setupEventListeners() {
+        // Search and filter events
+        document.getElementById('policySearch').addEventListener('input', filterPolicies);
+        document.getElementById('policyTypeFilter').addEventListener('change', filterPolicies);
+        document.getElementById('policyStatusFilter').addEventListener('change', filterPolicies);
+        
+        // Test scenario events
+        document.getElementById('testScenarioType').addEventListener('change', updateTestParameters);
+        document.getElementById('testObjectType').addEventListener('change', updateScenarioParameters);
+        
+        // Policy wizard events
+        document.querySelectorAll('.policy-type-card').forEach(card => {
+            card.addEventListener('click', function() {
+                selectPolicyType(this.dataset.type);
+            });
+        });
+    }
+    
+    async function loadPolicyAnalytics() {
+        try {
+            const response = await fetch('/api/policies/analytics');
+            analyticsData = await response.json();
+            
+            updateAnalyticsDashboard();
+        } catch (error) {
+            console.error('Error loading analytics:', error);
+        }
+    }
+    
+    function updateAnalyticsDashboard() {
+        document.getElementById('totalPolicies').textContent = analyticsData.summary?.total_policies || '0';
+        document.getElementById('complianceRate').textContent = 
+            (analyticsData.performance_metrics?.success_rate || 0).toFixed(1) + '%';
+        document.getElementById('policyCoverage').textContent = 
+            (analyticsData.summary?.policy_coverage || 0).toFixed(1) + '%';
+        document.getElementById('recentViolations').textContent = 
+            analyticsData.compliance_trends?.policy_violations?.reduce((a, b) => a + b, 0) || '0';
+    }
+    
+    async function loadPolicies() {
+        try {
+            const response = await fetch('/api/policies');
+            const data = await response.json();
+            policiesData = data.policies || [];
+            
+            updatePoliciesTable();
+            updateTestPolicySelect();
+        } catch (error) {
+            console.error('Error loading policies:', error);
+        }
+    }
+    
+    function updatePoliciesTable() {
+        const tbody = document.querySelector('#policiesTable tbody');
+        tbody.innerHTML = '';
+        
+        policiesData.forEach(policy => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${policy.name}</strong></td>
+                <td><span class="badge bg-secondary">${policy.type?.replace('_', ' ') || 'Unknown'}</span></td>
+                <td>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" ${policy.is_active ? 'checked' : ''} 
+                               onchange="togglePolicy(${policy.id})">
+                    </div>
+                </td>
+                <td><span class="badge bg-success">95%</span></td>
+                <td><small class="text-muted">2 hours ago</small></td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary btn-sm" onclick="editPolicy(${policy.id})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" onclick="testPolicy(${policy.id})">
+                            <i class="bi bi-play"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deletePolicy(${policy.id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+    
+    function updateTestPolicySelect() {
+        const select = document.getElementById('testPolicySelect');
+        select.innerHTML = '<option value="">Choose a policy...</option>';
+        
+        policiesData.forEach(policy => {
+            const option = document.createElement('option');
+            option.value = policy.id;
+            option.textContent = policy.name;
+            select.appendChild(option);
+        });
+    }
+    
+    function filterPolicies() {
+        const search = document.getElementById('policySearch').value.toLowerCase();
+        const typeFilter = document.getElementById('policyTypeFilter').value;
+        const statusFilter = document.getElementById('policyStatusFilter').value;
+        
+        const filtered = policiesData.filter(policy => {
+            const matchesSearch = !search || 
+                policy.name.toLowerCase().includes(search) ||
+                (policy.type || '').toLowerCase().includes(search);
+            
+            const matchesType = !typeFilter || policy.type === typeFilter;
+            
+            const matchesStatus = !statusFilter || 
+                (statusFilter === 'active' && policy.is_active) ||
+                (statusFilter === 'inactive' && !policy.is_active);
+            
+            return matchesSearch && matchesType && matchesStatus;
+        });
+        
+        // Update table with filtered results
+        const tbody = document.querySelector('#policiesTable tbody');
+        tbody.innerHTML = '';
+        
+        filtered.forEach(policy => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${policy.name}</strong></td>
+                <td><span class="badge bg-secondary">${policy.type?.replace('_', ' ') || 'Unknown'}</span></td>
+                <td>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" ${policy.is_active ? 'checked' : ''} 
+                               onchange="togglePolicy(${policy.id})">
+                    </div>
+                </td>
+                <td><span class="badge bg-success">95%</span></td>
+                <td><small class="text-muted">2 hours ago</small></td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary btn-sm" onclick="editPolicy(${policy.id})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" onclick="testPolicy(${policy.id})">
+                            <i class="bi bi-play"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deletePolicy(${policy.id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+    
+    function initializeCharts() {
+        // Policy Type Distribution Chart
+        const typeCtx = document.getElementById('policyTypeChart').getContext('2d');
+        new Chart(typeCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Procurement', 'Risk Management', 'Compliance', 'Sustainability'],
+                datasets: [{
+                    data: [3, 1, 1, 1],
+                    backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#20c997']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+        
+        // Compliance Trends Chart
+        const trendsCtx = document.getElementById('complianceTrendsChart').getContext('2d');
+        new Chart(trendsCtx, {
+            type: 'line',
+            data: {
+                labels: analyticsData.compliance_trends?.months || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Compliance Score',
+                    data: analyticsData.compliance_trends?.compliance_scores || [92, 94, 91, 96, 93, 95],
+                    borderColor: '#198754',
+                    backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 85,
+                        max: 100
+                    }
+                }
+            }
+        });
+    }
+    
+    function refreshAnalytics() {
+        loadPolicyAnalytics();
+        loadPolicies();
+        showToast('Success', 'Analytics refreshed successfully', 'success');
+    }
+    
+    // Policy Management Functions
+    async function togglePolicy(policyId) {
+        try {
+            const response = await fetch(`/api/policies/${policyId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    is_active: !policiesData.find(p => p.id === policyId).is_active
+                })
+            });
+            
+            if (response.ok) {
+                showToast('Success', 'Policy status updated', 'success');
+                loadPolicies();
+            }
+        } catch (error) {
+            showToast('Error', 'Failed to update policy status', 'error');
+        }
+    }
+    
+    function editPolicy(policyId) {
+        // For now, open the new policy modal with existing data
+        const policy = policiesData.find(p => p.id === policyId);
+        if (policy) {
+            const form = document.getElementById('newPolicyForm');
+            form.name.value = policy.name;
+            form.type.value = policy.type;
+            form.description.value = policy.description || '';
+            form.rules.value = policy.rules || '';
+            form.is_active.checked = policy.is_active;
+            
+            // Change modal title and button
+            document.querySelector('#newPolicyModal .modal-title').textContent = 'Edit Policy';
+            document.querySelector('#newPolicyModal .btn-primary').textContent = 'Update Policy';
+            document.querySelector('#newPolicyModal .btn-primary').onclick = () => updatePolicy(policyId);
+            
+            const modal = new bootstrap.Modal(document.getElementById('newPolicyModal'));
+            modal.show();
+        }
+    }
+    
+    function testPolicy(policyId) {
+        currentPolicyId = policyId;
+        const policy = policiesData.find(p => p.id === policyId);
+        document.querySelector('#testPolicyModal .modal-title').textContent = `Test Policy: ${policy.name}`;
+        
+        const modal = new bootstrap.Modal(document.getElementById('testPolicyModal'));
+        modal.show();
+    }
+    
+    async function createPolicy() {
+        const form = document.getElementById('newPolicyForm');
+        const formData = new FormData(form);
+        
+        try {
+            // Validate JSON
+            const rules = formData.get('rules');
+            if (rules) {
+                JSON.parse(rules);
+            }
+            
+            const response = await fetch('/api/policies', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: formData.get('name'),
+                    type: formData.get('type'),
+                    rules: rules,
+                    is_active: formData.get('is_active') === 'on'
+                })
+            });
+            
+            if (response.ok) {
+                showToast('Success', 'Policy created successfully', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('newPolicyModal')).hide();
+                loadPolicies();
+                form.reset();
+            }
+        } catch (error) {
+            showToast('Error', 'Invalid JSON in rules field or creation failed', 'error');
+        }
+    }
+    
+    async function updatePolicy(policyId) {
+        const form = document.getElementById('newPolicyForm');
+        const formData = new FormData(form);
+        
+        try {
+            const rules = formData.get('rules');
+            if (rules) {
+                JSON.parse(rules);
+            }
+            
+            const response = await fetch(`/api/policies/${policyId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: formData.get('name'),
+                    type: formData.get('type'),
+                    rules: rules,
+                    is_active: formData.get('is_active') === 'on'
+                })
+            });
+            
+            if (response.ok) {
+                showToast('Success', 'Policy updated successfully', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('newPolicyModal')).hide();
+                loadPolicies();
+                
+                // Reset modal
+                document.querySelector('#newPolicyModal .modal-title').textContent = 'Create New Policy';
+                document.querySelector('#newPolicyModal .btn-primary').textContent = 'Create Policy';
+                document.querySelector('#newPolicyModal .btn-primary').onclick = createPolicy;
+            }
+        } catch (error) {
+            showToast('Error', 'Update failed', 'error');
+        }
+    }
+    
+    async function deletePolicy(policyId) {
+        if (confirm('Are you sure you want to delete this policy?')) {
+            try {
+                const response = await fetch(`/api/policies/${policyId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showToast('Success', 'Policy deleted successfully', 'success');
+                    loadPolicies();
+                }
+            } catch (error) {
+                showToast('Error', 'Failed to delete policy', 'error');
+            }
+        }
+    }
+    
+    // Policy Testing Functions
+    function updateTestParameters() {
+        const scenarioType = document.getElementById('testScenarioType').value;
+        const container = document.getElementById('testParameters');
+        
+        let html = '';
+        
+        switch (scenarioType) {
+            case 'purchase_order':
+                html = `
+                    <label class="form-label">Purchase Amount ($)</label>
+                    <input type="number" class="form-control mb-2" id="testAmount" value="75000">
+                    <label class="form-label">Supplier ID</label>
+                    <input type="number" class="form-control mb-2" id="testSupplierId" value="1">
+                    <label class="form-label">Priority</label>
+                    <select class="form-select" id="testPriority">
+                        <option value="normal">Normal</option>
+                        <option value="urgent">Urgent</option>
+                        <option value="emergency">Emergency</option>
+                    </select>
+                `;
+                break;
+            case 'shipment':
+                html = `
+                    <label class="form-label">Route Risk Score</label>
+                    <input type="number" class="form-control mb-2" id="testRiskScore" value="0.7" step="0.1" min="0" max="1">
+                    <label class="form-label">Destination Country</label>
+                    <input type="text" class="form-control mb-2" id="testDestination" value="China">
+                    <label class="form-label">Transport Mode</label>
+                    <select class="form-select" id="testTransportMode">
+                        <option value="sea">Sea</option>
+                        <option value="air">Air</option>
+                        <option value="road">Road</option>
+                    </select>
+                `;
+                break;
+            case 'supplier':
+                html = `
+                    <label class="form-label">Performance Score</label>
+                    <input type="number" class="form-control mb-2" id="testPerformanceScore" value="85" min="0" max="100">
+                    <label class="form-label">Certification Level</label>
+                    <select class="form-select mb-2" id="testCertification">
+                        <option value="basic">Basic</option>
+                        <option value="advanced">Advanced</option>
+                        <option value="premium">Premium</option>
+                    </select>
+                    <label class="form-label">Location</label>
+                    <input type="text" class="form-control" id="testLocation" value="Shanghai, China">
+                `;
+                break;
+            case 'custom':
+                html = `
+                    <label class="form-label">Custom Test Data (JSON)</label>
+                    <textarea class="form-control" id="testCustomData" rows="4" placeholder='{"key": "value"}'></textarea>
+                `;
+                break;
+        }
+        
+        container.innerHTML = html;
+    }
+    
+    async function runPolicyTest() {
+        if (!currentPolicyId) return;
+        
+        const scenarioType = document.getElementById('testScenarioType').value;
+        let testData = { type: scenarioType };
+        
+        // Collect test parameters based on scenario type
+        switch (scenarioType) {
+            case 'purchase_order':
+                testData.amount = parseInt(document.getElementById('testAmount').value);
+                testData.supplier_id = parseInt(document.getElementById('testSupplierId').value);
+                testData.priority = document.getElementById('testPriority').value;
+                break;
+            case 'shipment':
+                testData.risk_score = parseFloat(document.getElementById('testRiskScore').value);
+                testData.destination = document.getElementById('testDestination').value;
+                testData.transport_mode = document.getElementById('testTransportMode').value;
+                break;
+            case 'supplier':
+                testData.performance_score = parseInt(document.getElementById('testPerformanceScore').value);
+                testData.certification = document.getElementById('testCertification').value;
+                testData.location = document.getElementById('testLocation').value;
+                break;
+            case 'custom':
+                try {
+                    testData = JSON.parse(document.getElementById('testCustomData').value);
+                } catch (e) {
+                    showToast('Error', 'Invalid JSON in custom test data', 'error');
+                    return;
+                }
+                break;
+        }
+        
+        try {
+            const response = await fetch(`/api/policies/${currentPolicyId}/test`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ scenario: testData })
+            });
+            
+            const result = await response.json();
+            
+            const resultDiv = document.getElementById('testResults');
+            resultDiv.className = `alert alert-${result.triggered ? 'warning' : 'success'}`;
+            resultDiv.innerHTML = `
+                <h6><i class="bi bi-${result.triggered ? 'exclamation-triangle' : 'check-circle'}"></i> 
+                Test Result: ${result.status.toUpperCase()}</h6>
+                <p><strong>Policy Triggered:</strong> ${result.triggered ? 'Yes' : 'No'}</p>
+                <p><strong>Compliance Score:</strong> ${result.compliance_score}%</p>
+                <p><strong>Execution Time:</strong> ${result.execution_time_ms}ms</p>
+                ${result.conditions_evaluated.length > 0 ? `
+                    <hr>
+                    <p><strong>Conditions Evaluated:</strong></p>
+                    <ul>
+                        ${result.conditions_evaluated.map(cond => 
+                            `<li>${cond.condition}: <span class="badge bg-${cond.result ? 'success' : 'danger'}">${cond.result ? 'PASS' : 'FAIL'}</span></li>`
+                        ).join('')}
+                    </ul>
+                ` : ''}
+                ${result.actions_recommended.length > 0 ? `
+                    <hr>
+                    <p><strong>Recommended Actions:</strong></p>
+                    <ul>
+                        ${result.actions_recommended.map(action => `<li>${action}</li>`).join('')}
+                    </ul>
+                ` : ''}
+            `;
+            resultDiv.style.display = 'block';
+            
+        } catch (error) {
+            showToast('Error', 'Policy test failed', 'error');
+        }
+    }
+    
+    // Template Functions
+    function applyTemplate(templateType) {
+        const templates = {
+            spend_threshold: {
+                name: 'Spend Threshold Policy',
+                type: 'procurement',
+                rules: JSON.stringify({
+                    threshold: 50000,
+                    approval_required: true,
+                    dual_approval: 100000,
+                    conditions: [
+                        { field: 'amount', operator: 'greater_than', value: 50000 }
+                    ]
+                }, null, 2)
+            },
+            dual_approval: {
+                name: 'Dual Approval Policy',
+                type: 'procurement',
+                rules: JSON.stringify({
+                    dual_approval: true,
+                    threshold: 100000,
+                    approvers_required: 2,
+                    conditions: [
+                        { field: 'amount', operator: 'greater_than', value: 100000 }
+                    ]
+                }, null, 2)
+            },
+            supplier_scoring: {
+                name: 'Supplier Performance Policy',
+                type: 'risk_management',
+                rules: JSON.stringify({
+                    min_performance_score: 80,
+                    required_certifications: ['ISO9001'],
+                    conditions: [
+                        { field: 'performance_score', operator: 'less_than', value: 80 }
+                    ]
+                }, null, 2)
+            },
+            geo_restriction: {
+                name: 'Geographic Restriction Policy',
+                type: 'compliance',
+                rules: JSON.stringify({
+                    restricted_countries: ['Country1', 'Country2'],
+                    require_special_approval: true,
+                    conditions: [
+                        { field: 'destination_country', operator: 'in', value: ['Country1', 'Country2'] }
+                    ]
+                }, null, 2)
+            }
+        };
+        
+        const template = templates[templateType];
+        if (template) {
+            const form = document.getElementById('newPolicyForm');
+            form.name.value = template.name;
+            form.type.value = template.type;
+            form.rules.value = template.rules;
+            
+            const modal = new bootstrap.Modal(document.getElementById('newPolicyModal'));
+            modal.show();
+        }
+    }
+    
+    // Configuration Wizard Functions
+    function selectPolicyType(type) {
+        wizardData.type = type;
+        
+        // Highlight selected card
+        document.querySelectorAll('.policy-type-card').forEach(card => {
+            card.classList.remove('border-primary');
+        });
+        document.querySelector(`[data-type="${type}"]`).classList.add('border-primary');
+        
+        // Enable next button
+        document.getElementById('wizardNext').disabled = false;
+    }
+    
+    function nextStep() {
+        if (wizardStep < 5) {
+            wizardStep++;
+            updateWizardStep();
+        }
+    }
+    
+    function previousStep() {
+        if (wizardStep > 1) {
+            wizardStep--;
+            updateWizardStep();
+        }
+    }
+    
+    function updateWizardStep() {
+        // Update tabs
+        document.querySelectorAll('#wizardTabs .nav-link').forEach((tab, index) => {
+            tab.classList.toggle('active', index + 1 === wizardStep);
+        });
+        
+        // Update content
+        document.querySelectorAll('.tab-pane').forEach((pane, index) => {
+            pane.classList.toggle('show', index + 1 === wizardStep);
+            pane.classList.toggle('active', index + 1 === wizardStep);
+        });
+        
+        // Update buttons
+        document.getElementById('wizardPrev').style.display = wizardStep > 1 ? 'inline-block' : 'none';
+        document.getElementById('wizardNext').style.display = wizardStep < 5 ? 'inline-block' : 'none';
+        document.getElementById('wizardCreate').style.display = wizardStep === 5 ? 'inline-block' : 'none';
+        
+        // Load step content
+        loadWizardStepContent();
+    }
+    
+    function loadWizardStepContent() {
+        switch (wizardStep) {
+            case 2:
+                loadConditionsStep();
+                break;
+            case 3:
+                loadActionsStep();
+                break;
+            case 4:
+                loadTestingStep();
+                break;
+            case 5:
+                loadReviewStep();
+                break;
+        }
+    }
+    
+    function loadConditionsStep() {
+        const container = document.getElementById('conditionsContainer');
+        container.innerHTML = `
+            <div class="alert alert-info">
+                Configure the conditions that will trigger this policy.
+            </div>
+            <div class="mb-3">
+                <button class="btn btn-outline-primary" onclick="addCondition()">
+                    <i class="bi bi-plus"></i> Add Condition
+                </button>
+            </div>
+            <div id="conditionsList">
+                <!-- Conditions will be added here -->
+            </div>
+        `;
+    }
+    
+    function loadActionsStep() {
+        const container = document.getElementById('actionsContainer');
+        container.innerHTML = `
+            <div class="alert alert-info">
+                Define what actions should be taken when the policy is triggered.
+            </div>
+            <!-- Actions configuration -->
+        `;
+    }
+    
+    function loadTestingStep() {
+        const container = document.getElementById('wizardTestContainer');
+        container.innerHTML = `
+            <div class="alert alert-warning">
+                Testing functionality will be available after policy creation.
+            </div>
+        `;
+    }
+    
+    function loadReviewStep() {
+        const container = document.getElementById('policyReview');
+        container.innerHTML = `
+            <div class="alert alert-success">
+                <h6>Policy Configuration Complete</h6>
+                <p>Review your policy settings below and click "Create Policy" to save.</p>
+            </div>
+            <table class="table">
+                <tr><td><strong>Type:</strong></td><td>${wizardData.type || 'Not selected'}</td></tr>
+                <tr><td><strong>Conditions:</strong></td><td>${(wizardData.conditions || []).length} configured</td></tr>
+                <tr><td><strong>Actions:</strong></td><td>${(wizardData.actions || []).length} configured</td></tr>
+            </table>
+        `;
+    }
+    
+    function addCondition() {
+        // Add condition configuration UI
+        const conditionsList = document.getElementById('conditionsList');
+        const conditionDiv = document.createElement('div');
+        conditionDiv.className = 'card mb-2';
+        conditionDiv.innerHTML = `
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <select class="form-select" name="conditionField">
+                            <option value="amount">Amount</option>
+                            <option value="risk_score">Risk Score</option>
+                            <option value="supplier_score">Supplier Score</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" name="conditionOperator">
+                            <option value="greater_than">Greater Than</option>
+                            <option value="less_than">Less Than</option>
+                            <option value="equals">Equals</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="conditionValue" placeholder="Value">
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-danger" onclick="this.closest('.card').remove()">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        conditionsList.appendChild(conditionDiv);
+    }
+    
+    function createPolicyFromWizard() {
+        // Collect wizard data and create policy
+        const policyData = {
+            name: `Generated ${wizardData.type} Policy`,
+            type: wizardData.type,
+            rules: JSON.stringify(wizardData),
+            is_active: true
+        };
+        
+        fetch('/api/policies', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(policyData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.policy) {
+                showToast('Success', 'Policy created successfully via wizard', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('policyWizardModal')).hide();
+                loadPolicies();
+                
+                // Reset wizard
+                wizardStep = 1;
+                wizardData = {};
+                updateWizardStep();
+            }
+        })
+        .catch(error => {
+            showToast('Error', 'Failed to create policy', 'error');
+        });
+    }
+    
+    // Advanced Testing Functions
+    function updateScenarioParameters() {
+        const scenarioType = document.getElementById('testObjectType').value;
+        const container = document.getElementById('scenarioParameters');
+        
+        // Similar to updateTestParameters but for advanced modal
+        updateTestParameters();
+    }
+    
+    function runAdvancedPolicyTest() {
+        runPolicyTest();
+    }
+    
+    function generateTestReport() {
+        // Generate a comprehensive test report
+        showToast('Info', 'Test report generation would be implemented here', 'info');
+    }
+    
+    // Utility Functions
+    function showToast(title, message, type) {
+        // Create and show toast notification
+        const toastContainer = document.getElementById('toast-container') || createToastContainer();
+        
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>${title}:</strong> ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        
+        // Remove toast after it's hidden
+        toast.addEventListener('hidden.bs.toast', () => {
+            toast.remove();
+        });
+    }
+    
+    function createToastContainer() {
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '1055';
+        document.body.appendChild(container);
+        return container;
+    }
+    
+    // Initialize test parameters on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        updateTestParameters();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}User Profile - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>User Profile</h2>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="bi bi-person-circle" style="font-size: 5rem;"></i>
+                    <h5 class="card-title mt-3">{{ user.name }}</h5>
+                    <p class="text-muted">{{ user.role }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Profile Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-sm-3">
+                            <h6 class="mb-0">Full Name</h6>
+                        </div>
+                        <div class="col-sm-9 text-secondary">
+                            {{ user.name }}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-3">
+                            <h6 class="mb-0">Email</h6>
+                        </div>
+                        <div class="col-sm-9 text-secondary">
+                            {{ user.email }}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-3">
+                            <h6 class="mb-0">Role</h6>
+                        </div>
+                        <div class="col-sm-9 text-secondary">
+                            {{ user.role }}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-3">
+                            <h6 class="mb-0">Workspace</h6>
+                        </div>
+                        <div class="col-sm-9 text-secondary">
+                            {{ user.workspace }}
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-12">
+                            <button class="btn btn-primary" disabled>Edit Profile</button>
+                            <button class="btn btn-outline-secondary" disabled>Change Password</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Preferences</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                        <label class="form-check-label" for="emailNotifications">
+                            Email Notifications
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="smsNotifications">
+                        <label class="form-check-label" for="smsNotifications">
+                            SMS Notifications
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="darkMode">
+                        <label class="form-check-label" for="darkMode">
+                            Dark Mode (Coming Soon)
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Placeholder for profile functionality
+document.querySelectorAll('.form-check-input').forEach(function(toggle) {
+    toggle.addEventListener('change', function() {
+        // In production, this would save preferences to the backend
+        console.log('Preference changed:', this.id, this.checked);
+    });
+});
+</script>
+{% endblock %}

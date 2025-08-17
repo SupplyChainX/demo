@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SupplyChainX{% endblock %}
+
+{% block content %}
+<style>
+    /* Custom styles for the dashboard */
+    .kpi-cards .card {
+        min-height: 140px;
+    }
+    </style>
+<div class="container-fluid py-4">
+    <h1 class="h3 mb-4">Supply Chain Dashboard</h1>
+    
+    <!-- KPI Cards Row -->
+    <div class="row g-3 mb-4 kpi-cards">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Global Risk Index</h6>
+                    <div class="d-flex align-items-center">
+                        <div class="progress flex-grow-1" style="height: 10px;">
+                            <div class="progress-bar bg-danger" id="riskIndexBar" style="width: 0%"></div>
+                        </div>
+                        <span class="ms-2 fw-bold" id="riskIndexValue">0.00</span>
+                    </div>
+                    <small class="text-muted">
+                        <i class="bi bi-arrow-up text-danger"></i> +0.12
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">On-time Deliveries</h6>
+                    <div class="d-flex align-items-center">
+                        <h3 class="mb-0" id="onTimeRate">93%</h3>
+                        <i class="bi bi-truck ms-auto fs-4 text-primary"></i>
+                    </div>
+                    <small class="text-muted">Last 30 days</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Open Alerts</h6>
+                    <div class="d-flex align-items-center">
+                        <h3 class="mb-0" id="openAlerts">17</h3>
+                        <i class="bi bi-exclamation-triangle ms-auto fs-4 text-warning"></i>
+                    </div>
+                    <small class="text-muted" id="alertsBreakdown">
+                        <span class="text-danger" id="criticalAlerts">0 critical</span>, 
+                        <span class="text-warning" id="highAlerts">0 high</span>, 
+                        <span class="text-info" id="mediumAlerts">0 medium</span>
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Inventory at Risk</h6>
+                    <div class="d-flex align-items-center">
+                        <h3 class="mb-0" id="inventoryAtRisk">12</h3>
+                        <span class="ms-2">SKUs</span>
+                        <i class="bi bi-box-seam ms-auto fs-4 text-danger"></i>
+                    </div>
+                    <small class="text-muted">Below 10-day threshold</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Maps and Charts Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Disruption Heatmap</h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <input type="radio" class="btn-check" name="mapView" id="mapGlobal">
+                        <label class="btn btn-outline-secondary" for="mapGlobal">Global</label>
+                        <input type="radio" class="btn-check" name="mapView" id="mapRoutes">
+                        <label class="btn btn-outline-secondary" for="mapRoutes">Routes</label>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="disruptionMap" style="height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">ETA Variance Trend</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="etaVarianceChart" height="150"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Shipments at Risk Table -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Shipments at Risk</h5>
+            <div class="d-flex align-items-center gap-2">
+                <small class="text-muted me-2">Sort by:</small>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Sort order toggle" data-bs-toggle="tooltip" data-bs-title="Change sort order">
+                    <input type="radio" class="btn-check" name="riskSortOrder" id="sortByRisk" value="risk">
+                    <label class="btn btn-outline-primary" for="sortByRisk" title="Sort by highest risk first">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Risk
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="riskSortOrder" id="sortByRecent" value="recent" checked>
+                    <label class="btn btn-outline-primary" for="sortByRecent" title="Sort by most recent updates first">
+                        <i class="bi bi-clock-fill"></i> Recent
+                    </label>
+                </div>
+                <a href="{{ url_for('main.logistics') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Reference</th>
+                            <th>Carrier</th>
+                            <th>Route</th>
+                            <th>ETA</th>
+                            <th>Risk</th>
+                            <th>Cause</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shipmentsAtRiskTable">
+                        <tr>
+                            <td colspan="8" class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Agent Recommendations (Recreated) -->
+    <div class="card" id="agentRecommendationsCard">
+        <div class="card-header d-flex flex-wrap align-items-center gap-2">
+            <h5 class="card-title mb-0 flex-grow-1">Agent Recommendations</h5>
+            <div class="d-flex gap-2 align-items-center small" id="recFilters">
+                <input type="text" class="form-control form-control-sm rec-search-input" placeholder="Search" id="recSearch" aria-label="Search recommendations" />
+                <select class="form-select form-select-sm rec-severity-select" id="recSeverity" aria-label="Filter by severity">
+                    <option value="">All Severities</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                </select>
+                <button class="btn btn-sm btn-outline-success" id="manualTriggerRecsBtn" type="button" title="Trigger generation (LLM if available)">
+                    <i class="bi bi-lightning-charge"></i> Generate
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="recommendationsListNew">
+                <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+                        <template id="xaiFactorsTemplate">
+                                <div class="modal fade" id="xaiFactorsModal" tabindex="-1" aria-labelledby="xaiFactorsLabel" aria-hidden="true">
+                                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="xaiFactorsLabel">Recommendation Explainability</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <h6 class="text-uppercase small text-muted mb-1">Rationale</h6>
+                                                    <p class="mb-2" data-xai-field="rationale">—</p>
+                                                </div>
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <h6 class="small text-muted text-uppercase mb-1">Key Factors</h6>
+                                                        <ul class="list-unstyled small mb-0" data-xai-list="factors"></ul>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <h6 class="small text-muted text-uppercase mb-1">Improvements</h6>
+                                                        <div class="small" data-xai-json="improvements"></div>
+                                                    </div>
+                                                </div>
+                                                <hr/>
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <h6 class="small text-muted text-uppercase mb-1">Data Sources</h6>
+                                                        <ul class="list-unstyled small mb-0" data-xai-list="data_sources"></ul>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <h6 class="small text-muted text-uppercase mb-1">Legacy Factors</h6>
+                                                        <ul class="list-unstyled small mb-0" data-xai-list="legacy_factors"></ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                        </template>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}?v=2"></script>
+<script>
+    console.log("MAIN_DASHBOARD.HTML: Script section executed");
+    
+    // Create global initialization flag
+    window.dashboardInitialized = false;
+    
+    // Only initialize once with improved error handling
+    function initializeDashboardOnce() {
+        if (window.dashboardInitialized) {
+            console.log("MAIN_DASHBOARD.HTML: Dashboard already initialized, skipping");
+            return;
+        }
+        
+        console.log("MAIN_DASHBOARD.HTML: Checking if initializeDashboard exists:", typeof window.initializeDashboard);
+        
+        // Make sure dashboard.js is fully loaded
+        if (typeof window.initializeDashboard !== 'function') {
+            console.error("MAIN_DASHBOARD.HTML: initializeDashboard function not found! dashboard.js may not be fully loaded.");
+            // Try again in a moment
+            setTimeout(initializeDashboardOnce, 100);
+            return;
+        }
+        
+        try {
+            console.log("MAIN_DASHBOARD.HTML: Initializing dashboard");
+            window.initializeDashboard();
+            window.dashboardInitialized = true;
+            console.log("MAIN_DASHBOARD.HTML: Dashboard initialization completed");
+            
+            // Verify new recommendations list exists and is accessible
+            const recommendationsList = document.getElementById('recommendationsListNew');
+            console.log("MAIN_DASHBOARD.HTML: New recommendations list element found:", !!recommendationsList);
+            
+            // Add a manual refresh button for recommendations
+            const recCard = document.getElementById('agentRecommendationsCard');
+            if (recCard && recCard.querySelector('.card-header')) {
+                const header = recCard.querySelector('.card-header');
+                const refreshBtn = document.createElement('button');
+                refreshBtn.className = 'btn btn-sm btn-outline-secondary float-end';
+                refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+                refreshBtn.title = 'Refresh recommendations';
+                refreshBtn.addEventListener('click', function() {
+                    console.log("MAIN_DASHBOARD.HTML: Manual refresh requested");
+                    const spinner = document.createElement('span');
+                    spinner.className = 'spinner-border spinner-border-sm ms-1';
+                    spinner.setAttribute('role', 'status');
+                    refreshBtn.appendChild(spinner);
+                    
+                    if (window.refreshRecommendations) {
+                        window.refreshRecommendations().then(() => {
+                            // Remove spinner after refresh
+                            if (spinner && spinner.parentNode) {
+                                spinner.parentNode.removeChild(spinner);
+                            }
+                        });
+                    }
+                });
+                header.appendChild(refreshBtn);
+            }
+            
+        } catch (error) {
+            console.error("MAIN_DASHBOARD.HTML ERROR:", error);
+            console.error("Error details:", error.message, error.stack);
+        }
+    }
+    
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("MAIN_DASHBOARD.HTML: DOMContentLoaded event fired");
+        // Short delay to ensure dashboard.js is fully loaded
+        setTimeout(initializeDashboardOnce, 100);
+    });
+</script>
+{% endblock %}

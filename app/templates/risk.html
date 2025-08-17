@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block title %}Risk Overview - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">Risk Overview</h1>
+            <p class="text-muted">Monitor and analyze supply chain threats in real-time</p>
+        </div>
+        <div class="col-auto">
+            <div class="row g-2">
+                <div class="col-auto">
+                    <button type="button" class="btn btn-primary" onclick="triggerRiskAssessment()" id="triggerBtn">
+                        <i class="bi bi-arrow-clockwise me-1"></i>
+                        <span id="triggerBtnText">Trigger Risk Assessment</span>
+                    </button>
+                </div>
+                <div class="col-auto">
+                    <div class="card text-center">
+                        <div class="card-body py-2">
+                            <div class="h4 mb-0 text-danger">{{ risk_stats.critical or 0 }}</div>
+                            <small class="text-muted">Critical</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="card text-center">
+                        <div class="card-body py-2">
+                            <div class="h4 mb-0 text-warning">{{ risk_stats.high or 0 }}</div>
+                            <small class="text-muted">High</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="card text-center">
+                        <div class="card-body py-2">
+                            <div class="h4 mb-0 text-info">{{ risk_stats.active or 0 }}</div>
+                            <small class="text-muted">Active</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Row -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-auto">
+                            <label class="col-form-label">Type:</label>
+                        </div>
+                        <div class="col-auto">
+                            <select class="form-select" id="riskTypeFilter" aria-label="Filter by risk type">
+                                <option value="all">All</option>
+                                <option value="weather">Weather</option>
+                                <option value="geopolitical">Geopolitical</option>
+                                <option value="supplier">Supplier</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <label class="col-form-label">Severity:</label>
+                        </div>
+                        <div class="col-auto">
+                            <select class="form-select" id="severityFilter" aria-label="Filter by severity">
+                                <option value="all">All</option>
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <label class="col-form-label">Window:</label>
+                        </div>
+                        <div class="col-auto">
+                            <select class="form-select" id="timeWindowFilter" aria-label="Filter by time window">
+                                <option value="7d">7 days</option>
+                                <option value="30d">30 days</option>
+                                <option value="90d">90 days</option>
+                            </select>
+                        </div>
+                        <div class="col-auto ms-auto">
+                            <button class="btn btn-primary" onclick="applyFilters()">
+                                <i class="bi bi-funnel"></i> Apply Filters
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Heatmap -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Global Risk Heatmap</h5>
+                </div>
+                <div class="card-body">
+                    <div id="riskHeatmap" style="height: 400px; background: #f8f9fa;">
+                        <!-- Leaflet map will be initialized here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts Timeline -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Risk Timeline</h5>
+                </div>
+                <div class="card-body">
+                    <div id="riskTimeline" class="position-relative" style="height: 140px;">
+                        <!-- Dynamic timeline populated by script -->
+                        <div class="timeline-container d-flex justify-content-between align-items-center h-100">
+                            <div class="timeline-line bg-secondary" style="position: absolute; width: 90%; height: 2px; top: 50%; left: 5%; z-index: 1;"></div>
+                            <div id="timelineItems" class="d-flex justify-content-between w-100 position-relative" style="z-index: 2;">
+                                <!-- Timeline items will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risk Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Active Risks</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="riskTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Title</th>
+                                    <th>Type</th>
+                                    <th>Severity</th>
+                                    <th>Risk Score</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if risks %}
+                                    {% for risk in risks %}
+                                    <tr>
+                                        <td>R{{ risk.id }}</td>
+                                        <td>{{ risk.title }}</td>
+                                        <td><span class="badge bg-{{ 'info' if risk.risk_type == 'weather' else 'dark' if risk.risk_type == 'geopolitical' else 'secondary' }}">{{ risk.risk_type|title }}</span></td>
+                                        <td><span class="badge bg-{{ 'danger' if risk.severity == 'critical' else 'warning' if risk.severity == 'high' else 'info' if risk.severity == 'medium' else 'secondary' }}">{{ risk.severity|title }}</span></td>
+                                        <td>{{ "%.2f"|format(risk.risk_score) }}</td>
+                                        <td>
+                                            {% if risk.location and risk.location.description %}
+                                                {{ risk.location.description }}
+                                            {% elif risk.geographic_scope %}
+                                                {{ risk.geographic_scope|title }}
+                                            {% else %}
+                                                N/A
+                                            {% endif %}
+                                        </td>
+                                        <td><span class="badge bg-{{ 'success' if risk.status == 'resolved' else 'warning' if risk.status == 'mitigating' else 'info' }}">{{ risk.status|title }}</span></td>
+                                        <td>{{ risk.created_at.strftime('%m/%d %H:%M') if risk.created_at else 'N/A' }}</td>
+                                        <td>
+                                            <a href="{{ url_for('main.risk_detail', risk_id=risk.id) }}" class="btn btn-sm btn-outline-primary">
+                                                Details
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="9" class="text-center text-muted py-4">
+                                            <i class="bi bi-shield-check text-success display-4 d-block mb-2"></i>
+                                            No active risks detected
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="riskData" type="application/json">{{ risks_serialized|tojson|safe }}</script>
+<script>
+// Dynamic Active Risk Heatmap
+let riskMap;
+let riskMarkers = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    initializeRiskMap();
+    plotActiveRisks();
+});
+
+function initializeRiskMap() {
+    riskMap = L.map('riskHeatmap').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(riskMap);
+}
+
+function plotActiveRisks() {
+    // Clear old markers
+    riskMarkers.forEach(m => riskMap.removeLayer(m));
+    riskMarkers = [];
+
+    const activeRisks = JSON.parse(document.getElementById('riskData').textContent || '[]');
+    activeRisks.forEach(risk => {
+        if (!risk.location) return;
+        const lat = risk.location.lat || risk.location.latitude;
+        const lon = risk.location.lon || risk.location.lng || risk.location.longitude;
+        if (lat == null || lon == null) return;
+        const severity = risk.severity || 'medium';
+        const color = severity === 'critical' ? '#7f0000' : severity === 'high' ? '#dc3545' : severity === 'medium' ? '#ffc107' : '#198754';
+        const marker = L.circleMarker([lat, lon], {
+            radius: 8 + Math.min(6, Math.max(0, (risk.risk_score || 0) * 6)),
+            fillColor: color,
+            color: '#fff',
+            weight: 1.5,
+            opacity: 1,
+            fillOpacity: 0.85
+        }).addTo(riskMap);
+        marker.bindPopup(`<strong>${risk.title}</strong><br>Type: ${risk.risk_type}<br>Severity: ${severity}<br>Score: ${(risk.risk_score||0).toFixed(2)}`);
+        riskMarkers.push(marker);
+    });
+    
+    // Update timeline after plotting risks
+    updateRiskTimeline(activeRisks);
+}
+
+function updateRiskTimeline(risks) {
+    const timelineContainer = document.getElementById('timelineItems');
+    if (!timelineContainer) return;
+    
+    // Sort risks by creation date (newest first) and take the 6 most recent
+    const sortedRisks = risks
+        .filter(r => r.created_at)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 6);
+    
+    timelineContainer.innerHTML = '';
+    
+    if (sortedRisks.length === 0) {
+        timelineContainer.innerHTML = '<div class="text-muted text-center w-100">No recent risk events</div>';
+        return;
+    }
+    
+    sortedRisks.forEach((risk, index) => {
+        const severity = risk.severity || 'medium';
+        const color = severity === 'critical' ? '#dc3545' : severity === 'high' ? '#fd7e14' : severity === 'medium' ? '#ffc107' : '#198754';
+        const bgColor = severity === 'critical' ? 'danger' : severity === 'high' ? 'warning' : severity === 'medium' ? 'warning' : 'success';
+        
+        const timelineItem = document.createElement('div');
+        timelineItem.className = 'text-center';
+        timelineItem.style.flex = '1';
+        
+        const date = new Date(risk.created_at);
+        const timeAgo = getTimeAgo(date);
+        
+        timelineItem.innerHTML = `
+            <div class="position-relative">
+                <div class="rounded-circle bg-${bgColor} mx-auto mb-2" style="width: 16px; height: 16px; border: 2px solid white;"></div>
+                <div class="small fw-bold text-truncate" style="max-width: 120px;">${risk.title.substring(0, 25)}${risk.title.length > 25 ? '...' : ''}</div>
+                <div class="text-muted" style="font-size: 0.75rem;">${timeAgo}</div>
+                <div class="badge bg-${bgColor} mt-1" style="font-size: 0.6rem;">${severity.toUpperCase()}</div>
+            </div>
+        `;
+        
+        timelineContainer.appendChild(timelineItem);
+    });
+}
+
+function getTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffDays > 0) {
+        return `${diffDays}d ago`;
+    } else if (diffHours > 0) {
+        return `${diffHours}h ago`;
+    } else {
+        return 'Recent';
+    }
+}
+
+function applyFilters() {
+    // Basic client-side filtering (extendable to server-side API call)
+    const type = document.getElementById('riskTypeFilter').value;
+    const severity = document.getElementById('severityFilter').value;
+    const windowSel = document.getElementById('timeWindowFilter').value; // reserved
+    const allRisks = JSON.parse(document.getElementById('riskData').textContent || '[]');
+    const filtered = allRisks.filter(r => (type==='all'||r.risk_type===type) && (severity==='all'||r.severity===severity));
+    // Re-plot markers
+    riskMarkers.forEach(m => riskMap.removeLayer(m));
+    riskMarkers = [];
+    filtered.forEach(r => {
+        if (!r.location) return;
+        const lat = r.location.lat || r.location.latitude;
+        const lon = r.location.lon || r.location.lng || r.location.longitude;
+        if (lat==null||lon==null) return;
+        const sev = r.severity || 'medium';
+        const color = sev === 'critical' ? '#7f0000' : sev === 'high' ? '#dc3545' : sev === 'medium' ? '#ffc107' : '#198754';
+        const marker = L.circleMarker([lat, lon], {
+            radius: 8 + Math.min(6, Math.max(0, (r.risk_score || 0) * 6)),
+            fillColor: color,
+            color: '#fff',
+            weight: 1.5,
+            opacity: 1,
+            fillOpacity: 0.85
+        }).addTo(riskMap);
+        marker.bindPopup(`<strong>${r.title}</strong><br>Type: ${r.risk_type}<br>Severity: ${sev}<br>Score: ${(r.risk_score||0).toFixed(2)}`);
+        riskMarkers.push(marker);
+    });
+    
+    // Update timeline with filtered risks
+    updateRiskTimeline(filtered);
+}
+
+function viewRiskDetails(riskId) {
+    window.location.href = `/risk/${riskId}`;
+}
+
+function triggerRiskAssessment() {
+    const btn = document.getElementById('triggerBtn');
+    const btnText = document.getElementById('triggerBtnText');
+    
+    // Show loading state
+    btn.disabled = true;
+    btnText.textContent = 'Running Assessment...';
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1 spinning"></i>' + btnText.textContent;
+    
+    fetch('/api/risks/trigger-assessment', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            showNotification('Risk assessment completed successfully! Found ' + data.current_risks + ' risks.', 'success');
+            
+            // Reload the page to show updated risks
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            showNotification('Failed to trigger risk assessment: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error triggering risk assessment:', error);
+        showNotification('Error triggering risk assessment. Please try again.', 'error');
+    })
+    .finally(() => {
+        // Reset button state
+        btn.disabled = false;
+        btnText.textContent = 'Trigger Risk Assessment';
+        btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>' + btnText.textContent;
+    });
+}
+
+function showNotification(message, type) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Add CSS for spinning animation
+const style = document.createElement('style');
+style.textContent = `
+    .spinning {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

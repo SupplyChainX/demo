@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}Documentation - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Documentation</h5>
+                    <nav class="nav flex-column">
+                        <a class="nav-link active" href="#getting-started">Getting Started</a>
+                        <a class="nav-link" href="#dashboard">Dashboard</a>
+                        <a class="nav-link" href="#logistics">Logistics Management</a>
+                        <a class="nav-link" href="#procurement">Procurement</a>
+                        <a class="nav-link" href="#risk">Risk Management</a>
+                        <a class="nav-link" href="#ai-agents">AI Agents</a>
+                        <a class="nav-link" href="#api">API Reference</a>
+                        <a class="nav-link" href="#faq">FAQ</a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-body">
+                    <h1 id="getting-started">Getting Started with SupplyChainX</h1>
+                    <p class="lead">Welcome to SupplyChainX, your AI-powered supply chain management platform.</p>
+                    
+                    <hr>
+                    
+                    <h2>Quick Start Guide</h2>
+                    <ol>
+                        <li>
+                            <strong>Dashboard Overview</strong>
+                            <p>The dashboard provides real-time KPIs, risk alerts, and AI recommendations.</p>
+                        </li>
+                        <li>
+                            <strong>Setting Up Integrations</strong>
+                            <p>Navigate to Settings → Integrations to connect external data sources.</p>
+                        </li>
+                        <li>
+                            <strong>Managing Shipments</strong>
+                            <p>Use the Logistics page to track and optimize your shipments.</p>
+                        </li>
+                    </ol>
+
+                    <hr>
+
+                    <h2 id="dashboard">Dashboard Features</h2>
+                    <h3>Key Performance Indicators</h3>
+                    <ul>
+                        <li><strong>Global Risk Index</strong>: AI-calculated risk score (0-1)</li>
+                        <li><strong>On-time Delivery Rate</strong>: Percentage of shipments delivered on schedule</li>
+                        <li><strong>Open Alerts</strong>: Number of unresolved risk alerts</li>
+                        <li><strong>Inventory at Risk</strong>: Items below safety stock levels</li>
+                    </ul>
+
+                    <h3>Risk Heatmap</h3>
+                    <p>The interactive map displays global risk hotspots affecting your supply chain:</p>
+                    <ul>
+                        <li>🔴 Red markers: High-risk areas</li>
+                        <li>🟡 Yellow markers: Medium-risk areas</li>
+                        <li>🟢 Green markers: Low-risk areas</li>
+                    </ul>
+
+                    <hr>
+
+                    <h2 id="ai-agents">AI Agent System</h2>
+                    <p>SupplyChainX employs five specialized AI agents:</p>
+                    
+                    <div class="accordion" id="agentAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#agent1">
+                                    Risk Predictor Agent
+                                </button>
+                            </h2>
+                            <div id="agent1" class="accordion-collapse collapse show" data-bs-parent="#agentAccordion">
+                                <div class="accordion-body">
+                                    <p>Monitors weather, geopolitical events, and supplier data to predict supply chain risks.</p>
+                                    <ul>
+                                        <li>Data sources: NOAA, GDELT, OpenCorporates</li>
+                                        <li>Update frequency: Every 15 minutes</li>
+                                        <li>Confidence threshold: 0.7</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#agent2">
+                                    Route Optimizer Agent
+                                </button>
+                            </h2>
+                            <div id="agent2" class="accordion-collapse collapse" data-bs-parent="#agentAccordion">
+                                <div class="accordion-body">
+                                    <p>Analyzes shipping routes and provides optimization recommendations.</p>
+                                    <ul>
+                                        <li>Factors: Distance, time, cost, emissions, risk</li>
+                                        <li>Route alternatives: Minimum 2 per shipment</li>
+                                        <li>Update trigger: Risk score > 0.6</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#agent3">
+                                    Procurement Agent
+                                </button>
+                            </h2>
+                            <div id="agent3" class="accordion-collapse collapse" data-bs-parent="#agentAccordion">
+                                <div class="accordion-body">
+                                    <p>Manages inventory levels and automates purchase order creation.</p>
+                                    <ul>
+                                        <li>Inventory monitoring: Real-time</li>
+                                        <li>Reorder trigger: < 10 days coverage</li>
+                                        <li>Supplier scoring: Price, reliability, lead time</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <h2 id="api">API Reference</h2>
+                    <p>Access the SupplyChainX API for custom integrations:</p>
+                    
+                    <div class="bg-light p-3 rounded">
+                        <h5>Authentication</h5>
+                        <code>Authorization: Bearer YOUR_API_KEY</code>
+                    </div>
+
+                    <div class="mt-3">
+                        <h5>Endpoints</h5>
+                        <ul>
+                            <li><code>GET /api/shipments</code> - List all shipments</li>
+                            <li><code>GET /api/risks</code> - Get current risk alerts</li>
+                            <li><code>POST /api/recommendations/{id}/approve</code> - Approve AI recommendation</li>
+                            <li><code>GET /api/kpis</code> - Retrieve current KPIs</li>
+                        </ul>
+                    </div>
+
+                    <hr>
+
+                    <h2 id="faq">Frequently Asked Questions</h2>
+                    
+                    <div class="mb-3">
+                        <h5>Q: How often is data updated?</h5>
+                        <p>A: Real-time data is updated via WebSocket connections. External data sources are polled every 15-60 minutes depending on the integration.</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <h5>Q: Can I override AI recommendations?</h5>
+                        <p>A: Yes, all AI recommendations require human approval. You can approve, reject, or modify any recommendation.</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <h5>Q: What happens when a risk is detected?</h5>
+                        <p>A: The system creates an alert, notifies relevant users, and the AI agents generate mitigation recommendations.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.nav-link.active {
+    background-color: #e9ecef;
+    border-radius: 0.25rem;
+}
+
+h2[id], h3[id] {
+    scroll-margin-top: 80px;
+}
+</style>
+
+<script>
+// Smooth scrolling for anchor links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        document.querySelector(this.getAttribute('href')).scrollIntoView({
+            behavior: 'smooth'
+        });
+    });
+});
+
+// Update active nav link on scroll
+window.addEventListener('scroll', function() {
+    const sections = document.querySelectorAll('h2[id], h3[id]');
+    const navLinks = document.querySelectorAll('.nav-link');
+    
+    let current = '';
+    sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.clientHeight;
+        if (scrollY >= (sectionTop - 100)) {
+            current = section.getAttribute('id');
+        }
+    });
+    
+    navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === `#${current}`) {
+            link.classList.add('active');
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SupplyChainX - Intelligent Supply Chain Management">
+    <title>{% block title %}SupplyChainX{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Leaflet CSS for maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+    
+    <!-- Assistant V2 CSS (replaces legacy enhanced_assistant.css) -->
+    <link href="{{ url_for('static', filename='css/assistant_v2.css') }}" rel="stylesheet">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+        <div class="container-fluid">
+            <!-- Burger menu for offcanvas -->
+            <button class="btn btn-link text-light p-0 me-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#sideNav">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+            
+            <!-- Logo/Brand -->
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('main.dashboard') }}">
+                <i class="bi bi-diagram-3 fs-4 me-2"></i>
+                <span class="fw-bold">SupplyChainX</span>
+            </a>
+            
+            <!-- Right side items -->
+            <div class="d-flex align-items-center">
+                <!-- Alerts dropdown -->
+                <div class="dropdown me-3">
+                    <button class="btn btn-link text-light position-relative" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-bell fs-5"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="alertBadge">
+                            0
+                        </span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" style="width: 350px;">
+                        <li class="dropdown-header d-flex justify-content-between align-items-center">
+                            <span>Notifications</span>
+                            <button class="btn btn-sm btn-link text-muted p-0" onclick="markAllNotificationsRead()" title="Mark all as read">
+                                <i class="bi bi-check-all"></i>
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <div id="notificationList" class="px-2" style="max-height: 400px; overflow-y: auto;">
+                            <p class="text-muted text-center py-3">No new notifications</p>
+                        </div>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-center" href="{{ url_for('main.alerts') }}">View All Alerts</a></li>
+                    </ul>
+                </div>
+
+
+
+
+                
+                <!-- User Dropdown -->
+                {% if current_user.is_authenticated %}
+                <div class="dropdown">
+                    <button class="btn btn-primary dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle"></i> {{ current_user.name }}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#"><i class="bi bi-person"></i> Profile</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('main.settings') }}"><i class="bi bi-gear"></i> Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                    </ul>
+                </div>
+                {% else %}
+                <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light">Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Offcanvas Navigation -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="sideNav">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title">Navigation</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body">
+            <nav class="nav flex-column">
+                <a class="nav-link {% if request.endpoint and request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint == 'main.logistics' %}active{% endif %}" href="{{ url_for('main.logistics') }}">
+                    <i class="bi bi-truck"></i> Logistics
+                </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint == 'main.procurement' %}active{% endif %}" href="{{ url_for('main.procurement') }}">
+                    <i class="bi bi-cart"></i> Procurement
+                </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint == 'main.suppliers' %}active{% endif %}" href="{{ url_for('main.suppliers') }}">
+                    <i class="bi bi-building"></i> Suppliers
+                </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint == 'main.inventory' %}active{% endif %}" href="{{ url_for('main.inventory') }}">
+                    <i class="bi bi-boxes"></i> Inventory
+                </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint == 'main.risk' %}active{% endif %}" href="{{ url_for('main.risk') }}">
+                    <i class="bi bi-exclamation-triangle"></i> Risk
+                </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint == 'main.reports' %}active{% endif %}" href="{{ url_for('main.reports') }}">
+                    <i class="bi bi-graph-up"></i> Reports
+                </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint == 'main.alerts' %}active{% endif %}" href="{{ url_for('main.alerts') }}">
+                    <i class="bi bi-bell"></i> Alerts
+                </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint == 'main.approvals' %}active{% endif %}" href="{{ url_for('main.approvals') }}">
+                    <i class="bi bi-check-circle"></i> Approvals
+                </a>
+                <a class="nav-link {% if request.endpoint and 'agent_dashboard' in request.endpoint %}active{% endif %}" href="{{ url_for('agent_dashboard.dashboard') }}">
+                    <i class="bi bi-robot"></i> Agent Dashboard
+                </a>
+                <hr>
+                <a class="nav-link" href="{{ url_for('main.policies') }}">
+                    <i class="bi bi-shield-check"></i> Policies & Compliance
+                </a>
+                <a class="nav-link" href="{{ url_for('main.audit_log') }}">
+                    <i class="bi bi-journal-text"></i> Audit Log
+                </a>
+                <a class="nav-link" href="{{ url_for('main.settings') }}">
+                    <i class="bi bi-gear"></i> Settings
+                </a>
+            </nav>
+        </div>
+    </div>
+    
+    <!-- Main Content Area -->
+    <main class="container-fluid" style="margin-top: 60px;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="container-fluid border-top mt-5 py-3">
+        <div class="row">
+            <div class="col-md-6">
+                <p class="text-muted mb-0">&copy; 2024 SupplyChainX. All rights reserved.</p>
+            </div>
+            <div class="col-md-6 text-end">
+                <a href="{{ url_for('main.docs') }}" class="text-muted">Documentation</a>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1055;">
+        <!-- Toasts will be dynamically added here -->
+    </div>
+    
+    <!-- Assistant V2 Markup (static) -->
+    <div id="ai-assistant-v2" class="minimized connected" aria-label="AI Assistant" aria-live="polite">
+        <div class="assistant-header">
+            <div class="left">
+                <div class="status-dot" aria-hidden="true"></div>
+                <span class="title">SupplyChainX Assistant</span>
+            </div>
+            <div class="right">
+                <button class="icon btn-min" type="button" title="Minimize"><i class="fas fa-minus"></i></button>
+            </div>
+        </div>
+        <div class="assistant-body">
+            <div class="messages" role="log" aria-live="polite"></div>
+            <div class="typing" hidden><div class="dots"><span></span><span></span><span></span></div><span>AI is thinking...</span></div>
+        </div>
+        <div class="assistant-footer">
+            <div class="input-row">
+                <textarea placeholder="Ask me anything about your supply chain..." aria-label="Message input"></textarea>
+                <button class="send" type="button" title="Send"><i class="fas fa-paper-plane"></i></button>
+            </div>
+            <div class="hint">
+                <span>💡 Shipments, suppliers, risks, routes, analytics</span>
+                <span>⌘K focus</span>
+            </div>
+        </div>
+    </div>
+    <div id="assistantTriggerV2"><button type="button" title="Open AI Assistant"><i class="fas fa-robot"></i></button></div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/websockets.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    
+    <!-- Assistant V2 JS -->
+    <script src="{{ url_for('static', filename='js/assistant_v2.js') }}"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+

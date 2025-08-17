@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Notification Settings - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4">Notification Settings</h1>
+    
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Notification Channels</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="emailNotifications"
+                               {% if preferences.email_notifications %}checked{% endif %}>
+                        <label class="form-check-label" for="emailNotifications">
+                            Email Notifications
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="smsNotifications"
+                               {% if preferences.sms_notifications %}checked{% endif %}>
+                        <label class="form-check-label" for="smsNotifications">
+                            SMS Notifications
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="appNotifications"
+                               {% if preferences.app_notifications %}checked{% endif %}>
+                        <label class="form-check-label" for="appNotifications">
+                            Push Notifications
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Notification Content</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="supplyChainAlerts"
+                               {% if preferences.supply_chain_alerts %}checked{% endif %}>
+                        <label class="form-check-label" for="supplyChainAlerts">
+                            Supply Chain Alerts
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="shipmentUpdates"
+                               {% if preferences.shipment_updates %}checked{% endif %}>
+                        <label class="form-check-label" for="shipmentUpdates">
+                            Shipment Status Updates
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="inventoryAlerts"
+                               {% if preferences.inventory_alerts %}checked{% endif %}>
+                        <label class="form-check-label" for="inventoryAlerts">
+                            Inventory Level Alerts
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="orderUpdates"
+                               {% if preferences.order_updates %}checked{% endif %}>
+                        <label class="form-check-label" for="orderUpdates">
+                            Order Confirmation and Updates
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Test Notifications</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Send a test notification to verify your settings</p>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="sendTestNotification('email')">
+                            <i class="bi bi-envelope"></i> Send Test Email
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="sendTestNotification('sms')">
+                            <i class="bi bi-phone"></i> Send Test SMS
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="sendTestNotification('app')">
+                            <i class="bi bi-app-indicator"></i> Send Test Push
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Quiet Hours -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Quiet Hours</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="quietHoursEnabled"
+                               {% if preferences.quiet_hours_enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="quietHoursEnabled">
+                            Enable quiet hours
+                        </label>
+                    </div>
+                    <div id="quietHoursSettings" {% if not preferences.quiet_hours_enabled %}style="display:none;"{% endif %}>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label">From</label>
+                                <input type="time" class="form-control" id="quietHoursStart" 
+                                       value="{{ preferences.quiet_hours_start }}">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">To</label>
+                                <input type="time" class="form-control" id="quietHoursEnd"
+                                       value="{{ preferences.quiet_hours_end }}">
+                            </div>
+                        </div>
+                        <small class="text-muted">Non-critical notifications will be held during quiet hours</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Notification Frequency -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Frequency Limits</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Maximum emails per hour</label>
+                        <input type="number" class="form-control" id="maxEmailsPerHour" 
+                               value="{{ preferences.max_emails_per_hour or 10 }}" min="1" max="100">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Maximum SMS per day</label>
+                        <input type="number" class="form-control" id="maxSmsPerDay" 
+                               value="{{ preferences.max_sms_per_day or 50 }}" min="1" max="500">
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="bundleNotifications"
+                               {% if preferences.bundle_notifications %}checked{% endif %}>
+                        <label class="form-check-label" for="bundleNotifications">
+                            Bundle similar notifications
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Save notification preferences
+    document.getElementById('notificationForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const preferences = {};
+        
+        // Collect all checkbox values
+        formData.forEach((value, key) => {
+            if (this.elements[key].type === 'checkbox') {
+                preferences[key] = this.elements[key].checked;
+            } else {
+                preferences[key] = value;
+            }
+        });
+        
+        // Add quiet hours settings
+        preferences.quiet_hours_enabled = document.getElementById('quietHoursEnabled').checked;
+        preferences.quiet_hours_start = document.getElementById('quietHoursStart').value;
+        preferences.quiet_hours_end = document.getElementById('quietHoursEnd').value;
+        preferences.max_emails_per_hour = document.getElementById('maxEmailsPerHour').value;
+        preferences.max_sms_per_day = document.getElementById('maxSmsPerDay').value;
+        preferences.bundle_notifications = document.getElementById('bundleNotifications').checked;
+        
+        fetch('/api/notifications/preferences', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(preferences)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Success', 'Notification preferences saved', 'success');
+            } else {
+                showToast('Error', data.message || 'Failed to save preferences', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving preferences:', error);
+            showToast('Error', 'Failed to save preferences', 'error');
+        });
+    });
+    
+    // Toggle quiet hours settings
+    document.getElementById('quietHoursEnabled').addEventListener('change', function() {
+        const settings = document.getElementById('quietHoursSettings');
+        settings.style.display = this.checked ? 'block' : 'none';
+    });
+    
+    // Send test notification
+    function sendTestNotification(type) {
+        fetch('/api/notifications/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ type: type })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Success', `Test ${type} notification sent`, 'success');
+            } else {
+                showToast('Error', data.message || 'Failed to send test notification', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error sending test notification:', error);
+            showToast('Error', 'Failed to send test notification', 'error');
+        });
+    }
+</script>
+{% endblock %}

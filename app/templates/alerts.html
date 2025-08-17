@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block title %}Alerts - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Alerts Inbox</h1>
+        <div>
+            <button class="btn btn-outline-secondary" onclick="markAllRead()">
+                <i class="bi bi-check-all"></i> Mark All Read
+            </button>
+            <button class="btn btn-outline-secondary ms-2" onclick="exportAlerts()">
+                <i class="bi bi-download"></i> Export
+            </button>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="">All</option>
+                        <option value="open" selected>Open</option>
+                        <option value="acknowledged">Acknowledged</option>
+                        <option value="resolved">Resolved</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Type</label>
+                    <select class="form-select" id="typeFilter">
+                        <option value="">All Types</option>
+                        <option value="weather">Weather</option>
+                        <option value="geopolitical">Geopolitical</option>
+                        <option value="supplier">Supplier</option>
+                        <option value="operational">Operational</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Severity</label>
+                    <select class="form-select" id="severityFilter">
+                        <option value="">All Levels</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Assignee</label>
+                    <select class="form-select" id="assigneeFilter">
+                        <option value="">All</option>
+                        <option value="me">Assigned to Me</option>
+                        <option value="unassigned">Unassigned</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <input type="text" class="form-control" id="searchAlerts" placeholder="Search alerts...">
+                    <button class="btn btn-primary ms-2" onclick="applyFilters()">Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Alerts List -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" id="alertsTable">
+                    <thead>
+                        <tr>
+                            <th width="20">
+                                <input class="form-check-input" type="checkbox" id="selectAll">
+                            </th>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Severity</th>
+                            <th>Affects</th>
+                            <th>Created</th>
+                            <th>SLA</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alertsTableBody">
+                        {% if alerts %}
+                            {% for alert in alerts %}
+                            <tr>
+                                <td>
+                                    <input class="form-check-input" type="checkbox" value="{{ alert.id }}">
+                                </td>
+                                <td>A-{{ alert.id }}</td>
+                                <td>
+                                    <strong>{{ alert.title }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ alert.description[:80] }}{% if alert.description|length > 80 %}...{% endif %}</small>
+                                </td>
+                                <td>
+                                    {% if alert.severity == 'critical' %}
+                                        <span class="badge bg-danger">Critical</span>
+                                    {% elif alert.severity == 'high' %}
+                                        <span class="badge bg-warning">High</span>
+                                    {% elif alert.severity == 'medium' %}
+                                        <span class="badge bg-info">Medium</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Low</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if alert.raw_data and alert.raw_data.get('affected_ports') %}
+                                        {{ alert.raw_data.affected_ports|length }} ports<br>
+                                        <small class="text-muted">{{ alert.raw_data.affected_ports|join(', ') }}</small>
+                                    {% elif alert.raw_data and alert.raw_data.get('vessels_affected') %}
+                                        {{ alert.raw_data.vessels_affected }} vessels<br>
+                                        <small class="text-muted">{{ alert.location.description if alert.location else 'N/A' }}</small>
+                                    {% elif alert.raw_data and alert.raw_data.get('orders_at_risk') %}
+                                        {{ alert.raw_data.orders_at_risk }} orders<br>
+                                        <small class="text-muted">${{ "{:,.0f}".format(alert.raw_data.value_at_risk) if alert.raw_data.value_at_risk else 'N/A' }}</small>
+                                    {% else %}
+                                        Multiple<br>
+                                        <small class="text-muted">{{ alert.type|title }} risk</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ alert.created_at.strftime('%H:%M') }}<br>
+                                    <small class="text-muted">{{ alert.data_sources[0] if alert.data_sources else 'System' }}</small>
+                                </td>
+                                <td>
+                                    {% set hours_elapsed = ((now - alert.created_at).total_seconds() / 3600)|round(1) %}
+                                    {% set sla_progress = (hours_elapsed / alert.sla_hours * 100)|round(0) %}
+                                    <div class="progress" style="height: 20px;">
+                                        {% if sla_progress < 50 %}
+                                            <div class="progress-bar bg-success" style="width: {{ sla_progress }}%">
+                                        {% elif sla_progress < 80 %}
+                                            <div class="progress-bar bg-warning" style="width: {{ sla_progress }}%">
+                                        {% else %}
+                                            <div class="progress-bar bg-danger" style="width: {{ [sla_progress, 100]|min }}%">
+                                        {% endif %}
+                                                {{ hours_elapsed }}h / {{ alert.sla_hours }}h
+                                            </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if alert.status == 'open' %}
+                                        <span class="badge bg-danger">Open</span>
+                                    {% elif alert.status == 'acknowledged' %}
+                                        <span class="badge bg-warning">Acknowledged</span>
+                                    {% elif alert.status == 'resolved' %}
+                                        <span class="badge bg-success">Resolved</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ alert.status|title }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('main.threat_detail', alert_id=alert.id) }}" class="btn btn-sm btn-outline-primary">
+                                        Open
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center py-4">
+                                    <div class="text-muted">
+                                        <i class="bi bi-inbox display-1"></i>
+                                        <p class="mt-2">No alerts found</p>
+                                        <small>Alerts will appear here when risks are detected</small>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <nav aria-label="Alert pagination">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#">Previous</a>
+                    </li>
+                    <li class="page-item active">
+                        <a class="page-link" href="#">1</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="#">2</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="#">3</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="#">Next</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Alert Detail Modal -->
+<div class="modal fade" id="alertDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Alert Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Alert details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="assignToMe()">Assign to Me</button>
+                <button type="button" class="btn btn-success" onclick="resolveAlert()">Mark Resolved</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Select all checkbox
+    document.getElementById('selectAll').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('#alertsTableBody input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+    });
+});
+
+function applyFilters() {
+    // In production, this would fetch filtered data from API
+    console.log('Applying filters...');
+    showToast('Info', 'Filters applied', 'info');
+}
+
+function markAllRead() {
+    if (confirm('Mark all alerts as read?')) {
+        // API call to mark all as read
+        showToast('Success', 'All alerts marked as read', 'success');
+    }
+}
+
+function exportAlerts() {
+    // Export functionality
+    console.log('Exporting alerts...');
+}
+
+function viewAlert(alertId) {
+    // Load alert details
+    const modal = new bootstrap.Modal(document.getElementById('alertDetailModal'));
+    
+    // In production, fetch from API
+    document.querySelector('#alertDetailModal .modal-body').innerHTML = `
+        <div class="row">
+            <div class="col-md-8">
+                <h6>Alert A-${alertId}</h6>
+                <p>Detailed information about the alert...</p>
+                
+                <h6 class="mt-4">Affected Resources</h6>
+                <ul>
+                    <li>Shipment MRS-4: Shanghai → Los Angeles</li>
+                    <li>Shipment DHL-7: Hamburg → Toronto</li>
+                </ul>
+                
+                <h6 class="mt-4">Recommended Actions</h6>
+                <div class="list-group">
+                    <a href="#" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Reroute affected shipments</h6>
+                            <button class="btn btn-sm btn-success">Execute</button>
+                        </div>
+                        <p class="mb-1">Avoid Red Sea corridor via Cape Town route</p>
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Notify stakeholders</h6>
+                            <button class="btn btn-sm btn-primary">Send</button>
+                        </div>
+                        <p class="mb-1">Alert customers about potential delays</p>
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <h6>Timeline</h6>
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <small class="text-muted">10:14 AM</small>
+                        <p class="mb-0">Alert created by Risk Predictor</p>
+                    </div>
+                    <div class="timeline-item">
+                        <small class="text-muted">10:16 AM</small>
+                        <p class="mb-0">Severity upgraded to High</p>
+                    </div>
+                    <div class="timeline-item">
+                        <small class="text-muted">10:20 AM</small>
+                        <p class="mb-0">3 shipments identified as affected</p>
+                    </div>
+                </div>
+                
+                <h6 class="mt-4">Metadata</h6>
+                <dl class="row">
+                    <dt class="col-sm-4">Type:</dt>
+                    <dd class="col-sm-8">Geopolitical</dd>
+                    <dt class="col-sm-4">Source:</dt>
+                    <dd class="col-sm-8">GDELT + Risk Predictor</dd>
+                    <dt class="col-sm-4">Confidence:</dt>
+                    <dd class="col-sm-8">0.87</dd>
+                </dl>
+            </div>
+        </div>
+    `;
+    
+    modal.show();
+}
+
+function assignToMe() {
+    console.log('Assigning alert to current user...');
+    showToast('Success', 'Alert assigned to you', 'success');
+}
+
+function resolveAlert() {
+    if (confirm('Mark this alert as resolved?')) {
+        console.log('Resolving alert...');
+        showToast('Success', 'Alert marked as resolved', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('alertDetailModal')).hide();
+    }
+}
+</script>
+{% endblock %}

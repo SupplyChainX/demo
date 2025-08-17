@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}Procurement - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Procurement: Purchase Orders</h1>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#filterPanel">
+                <i class="bi bi-funnel"></i> Filters
+            </button>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newPOModal">
+                <i class="bi bi-plus-circle"></i> New PO
+            </button>
+        </div>
+    </div>
+    
+    <!-- Advanced Filter Panel -->
+    <div class="collapse mb-4" id="filterPanel">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Search</label>
+                        <input type="text" class="form-control" id="procurementSearch" placeholder="Search POs...">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Priority</label>
+                        <select class="form-select" id="priorityFilter">
+                            <option value="">All Priorities</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Date Range</label>
+                        <select class="form-select" id="dateRangeFilter">
+                            <option value="">All Dates</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Value Range</label>
+                        <select class="form-select" id="valueRangeFilter">
+                            <option value="">All Values</option>
+                            <option value="small">&lt; $10K</option>
+                            <option value="medium">$10K - $50K</option>
+                            <option value="large">&gt; $50K</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Supplier</label>
+                        <select class="form-select" id="supplierFilter">
+                            <option value="">All Suppliers</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">Risk</label>
+                        <select class="form-select" id="riskFilter">
+                            <option value="">All</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bulk Actions Panel -->
+    <div class="alert alert-info d-none" id="bulkActions">
+        <div class="d-flex justify-content-between align-items-center">
+            <span><span id="selectedCount">0</span> purchase orders selected</span>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-success" onclick="bulkApprove()">
+                    <i class="bi bi-check-circle"></i> Approve Selected
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="bulkReject()">
+                    <i class="bi bi-x-circle"></i> Reject Selected
+                </button>
+                <button class="btn btn-sm btn-secondary" onclick="clearSelection()">
+                    <i class="bi bi-x"></i> Clear Selection
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#boardView">Board</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#listView">List</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#drafts">Drafts</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#contracts">Contracts</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#thresholds">Inventory Thresholds</a>
+        </li>
+    </ul>
+    
+    <!-- Tab Content -->
+    <div class="tab-content">
+        <!-- Board View -->
+        <div class="tab-pane fade show active" id="boardView">
+            <div class="row g-3">
+                <!-- Draft Column -->
+                <div class="col-md">
+                    <div class="card h-100">
+                        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                            <div>
+                                <input type="checkbox" class="form-check-input me-2" id="selectAllPOs">
+                                <span>Draft <span class="badge bg-light text-dark">3</span></span>
+                            </div>
+                        </div>
+                        <div class="card-body kanban-column" id="draft" data-status="draft">
+                            <!-- PO Cards will be loaded here -->
+                            <div class="text-center py-5">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Under Review Column -->
+                <div class="col-md">
+                    <div class="card h-100">
+                        <div class="card-header bg-warning">
+                            <h6 class="mb-0">Under Review <span class="badge bg-light text-dark">2</span></h6>
+                        </div>
+                        <div class="card-body kanban-column" id="under-review" data-status="under_review">
+                            <!-- PO Cards -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Approved Column -->
+                <div class="col-md">
+                    <div class="card h-100">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">Approved <span class="badge bg-light text-dark">5</span></h6>
+                        </div>
+                        <div class="card-body kanban-column" id="approved" data-status="approved">
+                            <!-- PO Cards -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sent Column -->
+                <div class="col-md">
+                    <div class="card h-100">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">Sent <span class="badge bg-light text-dark">1</span></h6>
+                        </div>
+                        <div class="card-body kanban-column" id="sent" data-status="sent">
+                            <!-- PO Cards -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Fulfilled Column -->
+                <div class="col-md">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0">Fulfilled <span class="badge bg-light text-dark">8</span></h6>
+                        </div>
+                        <div class="card-body kanban-column" id="fulfilled" data-status="fulfilled">
+                            <!-- PO Cards -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- List View -->
+        <div class="tab-pane fade" id="listView">
+            <div class="card" id="listContainer">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="poTable">
+                            <thead>
+                                <tr>
+                                    <th>PO#</th>
+                                    <th>Supplier</th>
+                                    <th>Items</th>
+                                    <th>Value</th>
+                                    <th>Status</th>
+                                    <th>SLA</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- POs will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Drafts Tab -->
+        <div class="tab-pane fade" id="drafts">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> AI-generated drafts based on inventory thresholds
+            </div>
+            <div class="row g-3" id="draftsList">
+                <!-- Draft cards will be loaded here -->
+            </div>
+        </div>
+        
+        <!-- Contracts Tab -->
+        <div class="tab-pane fade" id="contracts">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>Supplier Contracts</h5>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newContractModal">
+                    <i class="bi bi-plus-circle"></i> New Contract
+                </button>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="contractsTable">
+                            <thead>
+                                <tr>
+                                    <th>Contract #</th>
+                                    <th>Supplier</th>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Days to Expiry</th>
+                                    <th>Payment Terms</th>
+                                    <th>Min Order Value</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Contracts will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Inventory Thresholds Tab -->
+        <div class="tab-pane fade" id="thresholds">
+            <div class="card">
+                <div class="card-body">
+                    <h5>Auto-reorder Thresholds</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Description</th>
+                                    <th>Current Stock</th>
+                                    <th>Threshold</th>
+                                    <th>Reorder Qty</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="thresholdsTable">
+                                <!-- Thresholds will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New PO Modal -->
+<div class="modal fade" id="newPOModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Purchase Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newPOForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Supplier</label>
+                            <select class="form-select" name="supplier_id" required>
+                                <option value="">Select supplier...</option>
+                                <!-- Suppliers will be loaded here -->
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Delivery Date</label>
+                            <input type="date" class="form-control" name="delivery_date" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Items</label>
+                            <div id="poItems">
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" name="item_description[]" placeholder="Item description" required>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="number" class="form-control" name="quantity[]" placeholder="Qty" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="number" class="form-control" name="unit_price[]" placeholder="Unit price" step="0.01" required>
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-sm btn-danger" onclick="removeItem(this)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="addItem()">
+                                <i class="bi bi-plus"></i> Add Item
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createPO()">Create PO</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script src="{{ url_for('static', filename='js/procurement.js') }}"></script>
+{% endblock %}

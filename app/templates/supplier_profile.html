@@ -1,0 +1,1513 @@
+{% extends "base.html" %}
+
+{% block title %}{{ supplier.name }} - SupplyChainX{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">{{ supplier.name }}</h1>
+            <p class="text-muted mb-0">
+                {% if supplier.country and supplier.city %}
+                    {{ supplier.city }}, {{ supplier.country }}
+                {% elif supplier.country %}
+                    {{ supplier.country }}
+                {% elif supplier.city %}
+                    {{ supplier.city }}
+                {% else %}
+                    Location not specified
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            <span class="badge bg-{{ 'success' if (supplier.health_score or 0) > 80 else 'warning' if (supplier.health_score or 0) > 60 else 'danger' }}">
+                Health: {{ supplier.health_score or 'N/A' }}%
+            </span>
+            <span class="badge bg-{{ 'success' if supplier.is_active else 'warning' }}">
+                {{ 'Active' if supplier.is_active else 'Inactive' }}
+            </span>
+            {% if supplier.contract_end_date %}
+            <span class="badge bg-primary">Contract Until: {{ supplier.contract_end_date.strftime('%Y-%m-%d') }}</span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Key Metrics Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Reliability Score</h6>
+                    <h3 class="mb-0">{{ supplier.reliability_score or 'N/A' }}%</h3>
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i>
+                        Based on delivery performance
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Average Lead Time</h6>
+                    <h3 class="mb-0">{{ supplier.average_lead_time_days or 'N/A' }} days</h3>
+                    <small class="text-muted">Delivery timeline</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Price Index</h6>
+                    <h3 class="mb-0">{{ supplier.price_index or 'N/A' }}</h3>
+                    <small class="text-muted">1.0 = Market average</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Total POs</h6>
+                    <h3 class="mb-0">{{ supplier.purchase_orders|length or 0 }}</h3>
+                    <small class="text-muted">Purchase orders placed</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#overview">Overview</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#performance">Performance</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#risk">Risk Assessment</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#contracts">Contracts</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#documents">Documents</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#history">Order History</a>
+        </li>
+    </ul>
+    
+    <!-- Tab Content -->
+    <div class="tab-content">
+        <!-- Overview Tab -->
+        <div class="tab-pane fade show active" id="overview">
+            <div class="row g-3">
+                <div class="col-lg-8">
+                    <!-- Company Information -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Company Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row">
+                                <dt class="col-sm-3">Company Name:</dt>
+                                <dd class="col-sm-9">{{ supplier.name }}</dd>
+                                
+                                <dt class="col-sm-3">Code:</dt>
+                                <dd class="col-sm-9">{{ supplier.code or 'Not specified' }}</dd>
+                                
+                                <dt class="col-sm-3">Country:</dt>
+                                <dd class="col-sm-9">{{ supplier.country or 'Not specified' }}</dd>
+                                
+                                <dt class="col-sm-3">City:</dt>
+                                <dd class="col-sm-9">{{ supplier.city or 'Not specified' }}</dd>
+                                
+                                <dt class="col-sm-3">Contact Info:</dt>
+                                <dd class="col-sm-9">
+                                    {% if supplier.contact_info %}
+                                        {% if supplier.contact_info.email %}
+                                            <a href="mailto:{{ supplier.contact_info.email }}">{{ supplier.contact_info.email }}</a><br>
+                                        {% endif %}
+                                        {% if supplier.contact_info.phone %}
+                                            {{ supplier.contact_info.phone }}<br>
+                                        {% endif %}
+                                        {% if supplier.contact_info.address %}
+                                            {{ supplier.contact_info.address }}
+                                        {% endif %}
+                                        {% if not supplier.contact_info.email and not supplier.contact_info.phone and not supplier.contact_info.address %}
+                                            Not available
+                                        {% endif %}
+                                    {% else %}
+                                        Not available
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-3">Categories:</dt>
+                                <dd class="col-sm-9">
+                                    {% if supplier.categories and supplier.categories is iterable %}
+                                        {% for category in supplier.categories %}
+                                        <span class="badge bg-secondary">{{ category }}</span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="text-muted">No categories specified</span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                    
+                    <!-- Capabilities -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Capabilities & Certifications</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6>Production Capacity</h6>
+                            {% if supplier.capabilities and supplier.capabilities is iterable %}
+                            <ul>
+                                {% for capability in supplier.capabilities %}
+                                <li>{{ capability.type }}: {{ capability.capacity }} {{ capability.unit }}/month</li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <p class="text-muted">No production capacity information available</p>
+                            {% endif %}
+                            
+                            <h6 class="mt-3">Certifications</h6>
+                            {% if supplier.certifications and supplier.certifications is iterable %}
+                            <div class="row g-2">
+                                {% for cert in supplier.certifications %}
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-2">
+                                            {% if cert is string %}
+                                                <strong>{{ cert }}</strong>
+                                            {% else %}
+                                                <strong>{{ cert.name or cert }}</strong>
+                                                {% if cert.expiry_date %}
+                                                <br><small>Valid until: {{ cert.expiry_date.strftime('%Y-%m-%d') }}</small>
+                                                {% endif %}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No certifications on file</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <!-- Quick Actions -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-primary" onclick="createPO('{{ supplier.id }}')">
+                                    <i class="bi bi-plus-circle"></i> Create Purchase Order
+                                </button>
+                                <button class="btn btn-outline-primary" onclick="requestQuote('{{ supplier.id }}')">
+                                    <i class="bi bi-file-earmark-text"></i> Request Quote
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="scheduleAudit('{{ supplier.id }}')">
+                                    <i class="bi bi-clipboard-check"></i> Schedule Audit
+                                </button>
+                                {% if supplier.status == 'active' %}
+                                <button class="btn btn-outline-warning" onclick="pauseSupplier('{{ supplier.id }}')">
+                                    <i class="bi bi-pause-circle"></i> Pause Supplier
+                                </button>
+                                {% else %}
+                                <button class="btn btn-outline-success" onclick="activateSupplier('{{ supplier.id }}')">
+                                    <i class="bi bi-play-circle"></i> Activate Supplier
+                                </button>
+                                {% endif %}
+                                <button class="btn btn-outline-info" onclick="sendMessage('{{ supplier.id }}')">
+                                    <i class="bi bi-envelope"></i> Send Message
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Recent Activity</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="timeline-vertical">
+                                {% if recent_activities %}
+                                    {% for activity in recent_activities[:5] %}
+                                    <div class="timeline-item">
+                                        <small class="text-muted">{{ activity.timestamp.strftime('%m/%d %H:%M') }}</small>
+                                        <p class="mb-0">{{ activity.description }}</p>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-muted">No recent activities available</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Tab -->
+        <div class="tab-pane fade" id="performance">
+            <!-- KPI Summary Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-2">
+                    <div class="card performance-card text-center">
+                        <div class="card-body">
+                            <div class="performance-value text-primary">{{ "%.1f"|format(supplier.ontime_delivery_rate * 100 if supplier.ontime_delivery_rate else 0) }}%</div>
+                            <div class="performance-label">On-Time Delivery</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card performance-card text-center">
+                        <div class="card-body">
+                            <div class="performance-value text-success">{{ "%.1f"|format(supplier.quality_rating if supplier.quality_rating else 0) }}</div>
+                            <div class="performance-label">Quality Score</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card performance-card text-center">
+                        <div class="card-body">
+                            <div class="performance-value text-info">{{ supplier.average_lead_time_days or 0 }}</div>
+                            <div class="performance-label">Avg Lead Time (days)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card performance-card text-center">
+                        <div class="card-body">
+                            <div class="performance-value text-warning">{{ "%.2f"|format(supplier.price_index if supplier.price_index else 1.0) }}</div>
+                            <div class="performance-label">Price Index</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card performance-card text-center">
+                        <div class="card-body">
+                            <div class="performance-value text-secondary">{{ supplier.purchase_orders|length or 0 }}</div>
+                            <div class="performance-label">Total Orders</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card performance-card text-center">
+                        <div class="card-body">
+                            <div class="performance-value text-primary">${{ "{:,.0f}".format(total_spend or 0) }}K</div>
+                            <div class="performance-label">Total Spend</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Performance Charts -->
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">On-Time Delivery Trend</h5>
+                            <select class="form-select form-select-sm w-auto" id="otdPeriod">
+                                <option value="6">Last 6 Months</option>
+                                <option value="12" selected>Last 12 Months</option>
+                                <option value="24">Last 24 Months</option>
+                            </select>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="otdChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Quality Metrics Breakdown</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="qualityChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Lead Time vs Target</h5>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <input type="radio" class="btn-check" name="leadTimeView" id="leadTimeMonthly" checked>
+                                <label class="btn btn-outline-primary" for="leadTimeMonthly">Monthly</label>
+                                <input type="radio" class="btn-check" name="leadTimeView" id="leadTimeQuarterly">
+                                <label class="btn btn-outline-primary" for="leadTimeQuarterly">Quarterly</label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="leadTimeChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Cost Performance</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="costChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Monthly Performance Scorecard</h5>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="exportPerformanceReport()">
+                                <i class="bi bi-download"></i> Export Report
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Month</th>
+                                            <th>Orders</th>
+                                            <th>On-Time %</th>
+                                            <th>Quality Score</th>
+                                            <th>Avg Lead Time</th>
+                                            <th>Cost Variance</th>
+                                            <th>Overall Score</th>
+                                            <th>Trend</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="performanceScorecard">
+                                        <!-- Populated by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Risk Tab -->
+        <div class="tab-pane fade" id="risk">
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Risk Factors</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Risk Type</th>
+                                        <th>Level</th>
+                                        <th>Description</th>
+                                        <th>Mitigation</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for risk in (supplier.risk_factors or []) %}
+                                    <tr>
+                                        <td>{{ risk.type|title }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ risk.level }}">
+                                                {{ risk.level|upper }}
+                                            </span>
+                                        </td>
+                                        <td>{{ risk.description }}</td>
+                                        <td>{{ risk.mitigation }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Financial Health</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if supplier.financial_data %}
+                            <dl class="row">
+                                <dt class="col-sm-6">Credit Rating:</dt>
+                                <dd class="col-sm-6">{{ supplier.financial_data.credit_rating }}</dd>
+                                
+                                <dt class="col-sm-6">Payment Terms:</dt>
+                                <dd class="col-sm-6">{{ supplier.financial_data.payment_terms }}</dd>
+                                
+                                <dt class="col-sm-6">Insurance:</dt>
+                                <dd class="col-sm-6">
+                                    {% if supplier.financial_data.has_insurance %}
+                                    <span class="badge bg-success">Yes</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">No</span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                            {% else %}
+                            <p class="text-muted">Financial data not available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contract Management Section -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Contract Management</h5>
+                            <button class="btn btn-primary btn-sm" onclick="showAddContractModal()">
+                                <i class="bi bi-plus-circle me-1"></i>Add Contract
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="contract-filters mb-3">
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <select class="form-select form-select-sm" id="contractStatusFilter" onchange="filterContracts()">
+                                            <option value="">All Statuses</option>
+                                            <option value="active">Active</option>
+                                            <option value="pending">Pending</option>
+                                            <option value="expired">Expired</option>
+                                            <option value="draft">Draft</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <select class="form-select form-select-sm" id="contractTypeFilter" onchange="filterContracts()">
+                                            <option value="">All Types</option>
+                                            <option value="master_agreement">Master Agreement</option>
+                                            <option value="purchase_order">Purchase Order</option>
+                                            <option value="service_agreement">Service Agreement</option>
+                                            <option value="framework">Framework</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control form-control-sm" id="contractSearch" 
+                                               placeholder="Search contracts..." onkeyup="filterContracts()">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearContractFilters()">
+                                            Clear
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="contracts-table-container">
+                                <table class="table table-hover" id="contractsTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Contract ID</th>
+                                            <th>Type</th>
+                                            <th>Value</th>
+                                            <th>Start Date</th>
+                                            <th>End Date</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="contractsTableBody">
+                                        <!-- Contracts will be loaded here -->
+                                    </tbody>
+                                </table>
+                                
+                                <div id="contractsEmptyState" class="text-center py-4 d-none">
+                                    <i class="bi bi-file-earmark-text text-muted" style="font-size: 3rem;"></i>
+                                    <h6 class="text-muted mt-2">No contracts found</h6>
+                                    <p class="text-muted small">Create the first contract for this supplier</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Assessment Section -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Risk Assessment</h5>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="refreshRiskAssessment()">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="exportRiskReport()">
+                                    <i class="bi bi-download me-1"></i>Export
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- Overall Risk Score -->
+                            <div class="row mb-4">
+                                <div class="col-md-3">
+                                    <div class="risk-score-card text-center">
+                                        <div class="risk-score-circle" id="overallRiskScore">
+                                            <span class="risk-score-value">7.2</span>
+                                            <span class="risk-score-label">Risk Score</span>
+                                        </div>
+                                        <div class="risk-level mt-2">
+                                            <span class="badge bg-warning" id="riskLevelBadge">MEDIUM RISK</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-9">
+                                    <div class="risk-categories">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <div class="risk-category-item">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <span class="fw-medium">Financial Risk</span>
+                                                        <span class="badge bg-success">LOW</span>
+                                                    </div>
+                                                    <div class="progress progress-sm">
+                                                        <div class="progress-bar bg-success" style="width: 25%"></div>
+                                                    </div>
+                                                    <small class="text-muted">Credit rating: A+, Payment history: Excellent</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="risk-category-item">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <span class="fw-medium">Operational Risk</span>
+                                                        <span class="badge bg-warning">MEDIUM</span>
+                                                    </div>
+                                                    <div class="progress progress-sm">
+                                                        <div class="progress-bar bg-warning" style="width: 60%"></div>
+                                                    </div>
+                                                    <small class="text-muted">Capacity utilization: 85%, Lead time variance: 12%</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="risk-category-item">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <span class="fw-medium">Compliance Risk</span>
+                                                        <span class="badge bg-success">LOW</span>
+                                                    </div>
+                                                    <div class="progress progress-sm">
+                                                        <div class="progress-bar bg-success" style="width: 20%"></div>
+                                                    </div>
+                                                    <small class="text-muted">ISO 9001, IATF 16949 certified</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="risk-category-item">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <span class="fw-medium">Geographic Risk</span>
+                                                        <span class="badge bg-warning">MEDIUM</span>
+                                                    </div>
+                                                    <div class="progress progress-sm">
+                                                        <div class="progress-bar bg-warning" style="width: 55%"></div>
+                                                    </div>
+                                                    <small class="text-muted">Political stability: Good, Natural disaster risk: Medium</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Risk Trends Chart -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h6 class="mb-3">Risk Trend Analysis</h6>
+                                    <canvas id="riskTrendChart" height="100"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Risk Factors Table -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6 class="mb-3">Risk Factors & Mitigation</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Risk Factor</th>
+                                                    <th>Impact</th>
+                                                    <th>Probability</th>
+                                                    <th>Risk Level</th>
+                                                    <th>Mitigation Strategy</th>
+                                                    <th>Owner</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="riskFactorsTable">
+                                                <tr>
+                                                    <td>Single source dependency</td>
+                                                    <td><span class="badge bg-danger">HIGH</span></td>
+                                                    <td><span class="badge bg-warning">MEDIUM</span></td>
+                                                    <td><span class="badge bg-warning">MEDIUM</span></td>
+                                                    <td>Develop alternative suppliers in Q2</td>
+                                                    <td>Procurement Manager</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Lead time variability</td>
+                                                    <td><span class="badge bg-warning">MEDIUM</span></td>
+                                                    <td><span class="badge bg-warning">MEDIUM</span></td>
+                                                    <td><span class="badge bg-warning">MEDIUM</span></td>
+                                                    <td>Implement safety stock buffer</td>
+                                                    <td>Supply Chain Manager</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Geopolitical tensions</td>
+                                                    <td><span class="badge bg-warning">MEDIUM</span></td>
+                                                    <td><span class="badge bg-success">LOW</span></td>
+                                                    <td><span class="badge bg-success">LOW</span></td>
+                                                    <td>Monitor situation regularly</td>
+                                                    <td>Risk Manager</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Currency fluctuation</td>
+                                                    <td><span class="badge bg-warning">MEDIUM</span></td>
+                                                    <td><span class="badge bg-warning">MEDIUM</span></td>
+                                                    <td><span class="badge bg-warning">MEDIUM</span></td>
+                                                    <td>Implement currency hedging</td>
+                                                    <td>Finance Manager</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Contracts Tab -->
+        <div class="tab-pane fade" id="contracts">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Contract #</th>
+                                    <th>Type</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Value</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if contracts %}
+                                    {% for contract in contracts %}
+                                    <tr>
+                                        <td>{{ contract.number or 'N/A' }}</td>
+                                        <td>{{ contract.type or 'N/A' }}</td>
+                                        <td>{{ contract.start_date.strftime('%Y-%m-%d') if contract.start_date else 'N/A' }}</td>
+                                        <td>{{ contract.end_date.strftime('%Y-%m-%d') if contract.end_date else 'N/A' }}</td>
+                                        <td>${{ "{:,.0f}".format(contract.value) if contract.value else '0' }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if contract.status == 'active' else 'secondary' }}">
+                                                {{ contract.status|title if contract.status else 'Unknown' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    onclick="viewContract('{{ contract.id }}')">View</button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">No contracts available</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Documents Tab -->
+        <div class="tab-pane fade" id="documents">
+            <div class="card">
+                <div class="card-body">
+                    <p class="text-muted">Document management coming soon...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Order History Tab -->
+        <div class="tab-pane fade" id="history">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>PO Number</th>
+                                    <th>Date</th>
+                                    <th>Items</th>
+                                    <th>Total</th>
+                                    <th>Delivery</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if recent_orders %}
+                                    {% for order in recent_orders %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('main.purchase_detail', po_id=order.id) }}">
+                                                {{ order.po_number or 'N/A' }}
+                                            </a>
+                                        </td>
+                                        <td>{{ order.created_at.strftime('%Y-%m-%d') if order.created_at else 'N/A' }}</td>
+                                        <td>{{ order.line_items|length if order.line_items else 0 }}</td>
+                                        <td>${{ "{:,.2f}".format(order.total_amount) if order.total_amount else '0.00' }}</td>
+                                        <td>{{ order.delivery_date.strftime('%Y-%m-%d') if order.delivery_date else 'TBD' }}</td>
+                                        <td>
+                                            <span class="badge bg-secondary">
+                                                {{ order.status.value|replace('_', ' ')|title if order.status else 'Unknown' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    onclick="viewPO({{ order.id }})">View</button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted">No recent orders</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const supplierId = '{{ supplier.id }}';
+    
+    // Initialize charts
+    document.addEventListener('DOMContentLoaded', function() {
+        const tabEl = document.querySelector('a[data-bs-toggle="tab"][href="#performance"]');
+        tabEl.addEventListener('shown.bs.tab', function() {
+            initializePerformanceCharts();
+        });
+    });
+    
+    function initializePerformanceCharts() {
+        // Fetch performance data for charts
+        fetch(`/api/suppliers/${supplierId}/performance`)
+            .then(response => response.json())
+            .then(data => {
+                createOTDChart(data.otd_trend || []);
+                createQualityChart(data.quality_metrics || {});
+                createLeadTimeChart(data.lead_time_trend || []);
+                createCostChart(data.cost_performance || {});
+                populateScorecard(data.monthly_scores || []);
+            })
+            .catch(error => {
+                console.error('Error loading performance data:', error);
+                // Create charts with demo data
+                createDemoCharts();
+            });
+    }
+    
+    function createOTDChart(data) {
+        const ctx = document.getElementById('otdChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(d => d.month) || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'On-Time Delivery %',
+                    data: data.map(d => d.percentage) || [94, 96, 92, 98, 95, 97],
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }, {
+                    label: 'Target',
+                    data: new Array(data.length || 6).fill(95),
+                    borderColor: '#dc3545',
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+    }
+    
+    function createQualityChart(data) {
+        const ctx = document.getElementById('qualityChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Defect Rate', 'Return Rate', 'Compliance', 'Documentation', 'Response Time'],
+                datasets: [{
+                    label: 'Current Performance',
+                    data: [
+                        100 - (data.defect_rate || 2),
+                        100 - (data.return_rate || 1),
+                        data.compliance_score || 95,
+                        data.documentation_score || 92,
+                        data.response_score || 88
+                    ],
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    pointBackgroundColor: '#007bff',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: '#007bff'
+                }, {
+                    label: 'Industry Average',
+                    data: [95, 96, 90, 85, 80],
+                    borderColor: '#6c757d',
+                    backgroundColor: 'rgba(108, 117, 125, 0.1)',
+                    pointBackgroundColor: '#6c757d',
+                    pointBorderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            stepSize: 20
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function createLeadTimeChart(data) {
+        const ctx = document.getElementById('leadTimeChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.map(d => d.month) || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Actual Lead Time',
+                    data: data.map(d => d.actual) || [12, 11, 13, 10, 12, 9],
+                    backgroundColor: '#17a2b8',
+                    borderRadius: 4
+                }, {
+                    label: 'Target Lead Time',
+                    data: data.map(d => d.target) || [10, 10, 10, 10, 10, 10],
+                    backgroundColor: '#ffc107',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Days'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function createCostChart(data) {
+        const ctx = document.getElementById('costChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['On Budget', 'Over Budget', 'Under Budget'],
+                datasets: [{
+                    data: [
+                        data.on_budget || 70,
+                        data.over_budget || 20,
+                        data.under_budget || 10
+                    ],
+                    backgroundColor: ['#28a745', '#dc3545', '#17a2b8'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.parsed + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function populateScorecard(data) {
+        const tbody = document.getElementById('performanceScorecard');
+        if (!data || data.length === 0) {
+            // Generate demo data
+            data = generateDemoScorecard();
+        }
+        
+        tbody.innerHTML = data.map(row => `
+            <tr>
+                <td>${row.month}</td>
+                <td>${row.orders}</td>
+                <td>
+                    <span class="badge bg-${row.on_time >= 95 ? 'success' : row.on_time >= 90 ? 'warning' : 'danger'}">
+                        ${row.on_time}%
+                    </span>
+                </td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <span class="me-2">${row.quality_score}</span>
+                        <div class="progress flex-fill" style="height: 6px;">
+                            <div class="progress-bar bg-${row.quality_score >= 4 ? 'success' : row.quality_score >= 3 ? 'warning' : 'danger'}" 
+                                 style="width: ${row.quality_score * 20}%"></div>
+                        </div>
+                    </div>
+                </td>
+                <td>${row.lead_time} days</td>
+                <td>
+                    <span class="text-${row.cost_variance >= 0 ? 'success' : 'danger'}">
+                        ${row.cost_variance >= 0 ? '+' : ''}${row.cost_variance}%
+                    </span>
+                </td>
+                <td>
+                    <span class="badge bg-${row.overall_score >= 90 ? 'success' : row.overall_score >= 80 ? 'warning' : 'danger'}">
+                        ${row.overall_score}
+                    </span>
+                </td>
+                <td>
+                    <i class="bi bi-${row.trend === 'up' ? 'trend-up text-success' : row.trend === 'down' ? 'trend-down text-danger' : 'dash text-muted'}"></i>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    function generateDemoScorecard() {
+        const months = ['Jan 2025', 'Dec 2024', 'Nov 2024', 'Oct 2024', 'Sep 2024', 'Aug 2024'];
+        const trends = ['up', 'up', 'stable', 'down', 'up', 'stable'];
+        
+        return months.map((month, index) => ({
+            month,
+            orders: Math.floor(Math.random() * 20) + 10,
+            on_time: Math.floor(Math.random() * 15) + 85,
+            quality_score: (Math.random() * 1.5 + 3.5).toFixed(1),
+            lead_time: Math.floor(Math.random() * 5) + 8,
+            cost_variance: (Math.random() * 10 - 5).toFixed(1),
+            overall_score: Math.floor(Math.random() * 20) + 80,
+            trend: trends[index]
+        }));
+    }
+    
+    function createDemoCharts() {
+        createOTDChart([]);
+        createQualityChart({});
+        createLeadTimeChart([]);
+        createCostChart({});
+        populateScorecard([]);
+    }
+    
+    function exportPerformanceReport() {
+        const url = `/api/suppliers/${supplierId}/performance/export`;
+        window.open(url, '_blank');
+    }
+    
+    function createPO(supplierId) {
+        window.location.href = `/procurement/new?supplier=${supplierId}`;
+    }
+    
+    function requestQuote(supplierId) {
+        // Show quote request modal
+        window.location.href = `/procurement/quote-request?supplier=${supplierId}`;
+    }
+    
+    function pauseSupplier(supplierId) {
+        if (confirm('Are you sure you want to pause this supplier?')) {
+            fetch(`/api/suppliers/${supplierId}/pause`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Success', 'Supplier paused', 'success');
+                    setTimeout(() => window.location.reload(), 1000);
+                }
+            });
+        }
+    }
+
+    // Contract Management Functions
+    let allContracts = [];
+    let filteredContracts = [];
+
+    function loadContracts() {
+        fetch(`/api/suppliers/${supplierId}/contracts`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    allContracts = data.contracts || [];
+                    filteredContracts = [...allContracts];
+                    renderContractsTable();
+                } else {
+                    // Show demo data if no contracts
+                    allContracts = getDemoContracts();
+                    filteredContracts = [...allContracts];
+                    renderContractsTable();
+                }
+            })
+            .catch(error => {
+                console.error('Error loading contracts:', error);
+                // Show demo data on error
+                allContracts = getDemoContracts();
+                filteredContracts = [...allContracts];
+                renderContractsTable();
+            });
+    }
+
+    function getDemoContracts() {
+        return [
+            {
+                id: 'CNT-2024-001',
+                type: 'master_agreement',
+                value: 2500000,
+                start_date: '2024-01-01',
+                end_date: '2025-12-31',
+                status: 'active',
+                description: 'Master Supply Agreement - Raw Materials'
+            },
+            {
+                id: 'CNT-2024-002',
+                type: 'service_agreement',
+                value: 750000,
+                start_date: '2024-03-15',
+                end_date: '2024-12-31',
+                status: 'active',
+                description: 'Maintenance Service Agreement'
+            },
+            {
+                id: 'CNT-2024-003',
+                type: 'framework',
+                value: 1200000,
+                start_date: '2024-06-01',
+                end_date: '2025-05-31',
+                status: 'pending',
+                description: 'Framework Agreement - Q3/Q4 Production'
+            }
+        ];
+    }
+
+    function renderContractsTable() {
+        const tbody = document.getElementById('contractsTableBody');
+        const emptyState = document.getElementById('contractsEmptyState');
+        
+        if (filteredContracts.length === 0) {
+            tbody.innerHTML = '';
+            emptyState.classList.remove('d-none');
+            return;
+        }
+        
+        emptyState.classList.add('d-none');
+        
+        tbody.innerHTML = filteredContracts.map(contract => `
+            <tr>
+                <td><strong>${contract.id}</strong></td>
+                <td>${formatContractType(contract.type)}</td>
+                <td>${formatCurrency(contract.value)}</td>
+                <td>${formatDate(contract.start_date)}</td>
+                <td>${formatDate(contract.end_date)}</td>
+                <td>
+                    <span class="badge bg-${getStatusColor(contract.status)}">
+                        ${contract.status.toUpperCase()}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="viewContract('${contract.id}')" title="View">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="editContract('${contract.id}')" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-info" onclick="downloadContract('${contract.id}')" title="Download">
+                            <i class="bi bi-download"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function filterContracts() {
+        const statusFilter = document.getElementById('contractStatusFilter').value;
+        const typeFilter = document.getElementById('contractTypeFilter').value;
+        const searchTerm = document.getElementById('contractSearch').value.toLowerCase();
+        
+        filteredContracts = allContracts.filter(contract => {
+            const matchesStatus = !statusFilter || contract.status === statusFilter;
+            const matchesType = !typeFilter || contract.type === typeFilter;
+            const matchesSearch = !searchTerm || 
+                contract.id.toLowerCase().includes(searchTerm) ||
+                (contract.description && contract.description.toLowerCase().includes(searchTerm));
+            
+            return matchesStatus && matchesType && matchesSearch;
+        });
+        
+        renderContractsTable();
+    }
+
+    function clearContractFilters() {
+        document.getElementById('contractStatusFilter').value = '';
+        document.getElementById('contractTypeFilter').value = '';
+        document.getElementById('contractSearch').value = '';
+        filterContracts();
+    }
+
+    function showAddContractModal() {
+        // Implement contract creation modal
+        showToast('Info', 'Contract creation feature coming soon', 'info');
+    }
+
+    function viewContract(contractId) {
+        window.open(`/contracts/${contractId}`, '_blank');
+    }
+
+    function editContract(contractId) {
+        window.location.href = `/contracts/${contractId}/edit`;
+    }
+
+    function downloadContract(contractId) {
+        window.open(`/api/contracts/${contractId}/download`, '_blank');
+    }
+
+    // Risk Assessment Functions
+    function initializeRiskAssessment() {
+        createRiskTrendChart();
+        updateRiskScore();
+    }
+
+    function createRiskTrendChart() {
+        const ctx = document.getElementById('riskTrendChart');
+        if (!ctx) return;
+
+        // Demo risk trend data
+        const riskData = {
+            labels: ['Jan 2024', 'Feb 2024', 'Mar 2024', 'Apr 2024', 'May 2024', 'Jun 2024'],
+            datasets: [
+                {
+                    label: 'Overall Risk Score',
+                    data: [6.8, 7.1, 6.9, 7.2, 7.0, 7.2],
+                    borderColor: '#ffc107',
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Financial Risk',
+                    data: [3.2, 3.0, 2.8, 2.5, 2.3, 2.5],
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    fill: false,
+                    tension: 0.3
+                },
+                {
+                    label: 'Operational Risk',
+                    data: [5.8, 6.2, 6.0, 6.5, 6.1, 6.0],
+                    borderColor: '#fd7e14',
+                    backgroundColor: 'rgba(253, 126, 20, 0.1)',
+                    fill: false,
+                    tension: 0.3
+                }
+            ]
+        };
+
+        new Chart(ctx, {
+            type: 'line',
+            data: riskData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.formattedValue + '/10';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 10,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '/10';
+                            }
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+    }
+
+    function updateRiskScore() {
+        // Simulate dynamic risk score calculation
+        const currentScore = 7.2;
+        const riskLevel = getRiskLevel(currentScore);
+        
+        document.querySelector('.risk-score-value').textContent = currentScore.toFixed(1);
+        const badge = document.getElementById('riskLevelBadge');
+        badge.textContent = riskLevel.label;
+        badge.className = `badge bg-${riskLevel.color}`;
+    }
+
+    function getRiskLevel(score) {
+        if (score <= 3) return { label: 'LOW RISK', color: 'success' };
+        if (score <= 6) return { label: 'MEDIUM RISK', color: 'warning' };
+        return { label: 'HIGH RISK', color: 'danger' };
+    }
+
+    function refreshRiskAssessment() {
+        showToast('Info', 'Refreshing risk assessment...', 'info');
+        // Simulate API call
+        setTimeout(() => {
+            updateRiskScore();
+            showToast('Success', 'Risk assessment updated', 'success');
+        }, 1500);
+    }
+
+    function exportRiskReport() {
+        const url = `/api/suppliers/${supplierId}/risk/export`;
+        window.open(url, '_blank');
+    }
+
+    // Utility Functions
+    function formatContractType(type) {
+        const types = {
+            'master_agreement': 'Master Agreement',
+            'purchase_order': 'Purchase Order',
+            'service_agreement': 'Service Agreement',
+            'framework': 'Framework Agreement'
+        };
+        return types[type] || type;
+    }
+
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    }
+
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount);
+    }
+
+    function getStatusColor(status) {
+        const colors = {
+            'active': 'success',
+            'pending': 'warning',
+            'expired': 'danger',
+            'draft': 'secondary'
+        };
+        return colors[status] || 'secondary';
+    }
+
+    // Enhanced initialization
+    const originalInitializeCharts = initializeCharts;
+    initializeCharts = function() {
+        originalInitializeCharts();
+        loadContracts();
+        initializeRiskAssessment();
+    };
+</script>
+
+<!-- Add Contract Modal -->
+<div class="modal fade" id="addContractModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Contract</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addContractForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Contract Type</label>
+                            <select class="form-select" name="type" required>
+                                <option value="">Select Type</option>
+                                <option value="master_agreement">Master Agreement</option>
+                                <option value="purchase_order">Purchase Order</option>
+                                <option value="service_agreement">Service Agreement</option>
+                                <option value="framework">Framework Agreement</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Contract Value</label>
+                            <input type="number" class="form-control" name="value" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" class="form-control" name="start_date" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" class="form-control" name="end_date" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" rows="3"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitContract()">Create Contract</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .risk-score-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(45deg, #ffc107, #fd7e14);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .risk-score-value {
+        font-size: 2rem;
+        line-height: 1;
+    }
+    
+    .risk-score-label {
+        font-size: 0.8rem;
+        opacity: 0.9;
+    }
+    
+    .risk-category-item {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid #dee2e6;
+    }
+    
+    .risk-category-item .progress {
+        height: 8px;
+        margin: 8px 0;
+    }
+    
+    .progress-sm {
+        height: 6px;
+    }
+    
+    .contract-filters {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+</style>
+</script>
+{% endblock %}

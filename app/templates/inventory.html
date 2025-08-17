@@ -1,0 +1,568 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">Inventory Management</h1>
+            <p class="text-muted">Monitor stock levels and reorder points</p>
+        </div>
+        <div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addInventoryModal">
+                <i class="fas fa-plus"></i> Add Item
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Site</label>
+                    <select class="form-select" id="siteFilter">
+                        <option value="">All Sites</option>
+                        <option value="LAX">LAX - Los Angeles</option>
+                        <option value="HAM">HAM - Hamburg</option>
+                        <option value="SHG">SHG - Shanghai</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">SKU Search</label>
+                    <input type="text" class="form-control" id="skuSearch" placeholder="Search SKUs...">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Threshold Status</label>
+                    <select class="form-select" id="thresholdFilter">
+                        <option value="">All Items</option>
+                        <option value="critical">Critical (&lt; 5 days)</option>
+                        <option value="low">Low (&lt; 10 days)</option>
+                        <option value="normal">Normal</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Risk Level</label>
+                    <select class="form-select" id="riskFilter">
+                        <option value="">All Risk Levels</option>
+                        <option value="high">High Risk</option>
+                        <option value="medium">Medium Risk</option>
+                        <option value="low">Low Risk</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="display-6 text-danger">{{ kpis.critical_items or 0 }}</div>
+                    <div class="text-muted">Critical Items</div>
+                    <small class="text-danger">&lt; 5 days cover</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="display-6 text-warning">{{ kpis.low_stock_items or 0 }}</div>
+                    <div class="text-muted">Low Stock</div>
+                    <small class="text-warning">&lt; 10 days cover</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="display-6 text-info">{{ kpis.total_skus or 0 }}</div>
+                    <div class="text-muted">Total SKUs</div>
+                    <small class="text-muted">Active items</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="display-6 text-success">${{ "%.1f"|format(kpis.total_value / 1000 if kpis.total_value else 0) }}k</div>
+                    <div class="text-muted">Total Value</div>
+                    <small class="text-muted">Current stock</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advanced Analytics Dashboard -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Stock Level Visualization</h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <input type="radio" class="btn-check" name="chartType" id="chartTypeStock" value="stock" checked>
+                        <label class="btn btn-outline-primary" for="chartTypeStock">Stock Levels</label>
+                        <input type="radio" class="btn-check" name="chartType" id="chartTypeTurnover" value="turnover">
+                        <label class="btn btn-outline-primary" for="chartTypeTurnover">Turnover</label>
+                        <input type="radio" class="btn-check" name="chartType" id="chartTypeValue" value="value">
+                        <label class="btn btn-outline-primary" for="chartTypeValue">Value Distribution</label>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <canvas id="inventoryChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" onclick="openThresholdManager()">
+                            <i class="fas fa-cog"></i> Manage Thresholds
+                        </button>
+                        <button class="btn btn-warning" onclick="triggerAutomaticReorder()">
+                            <i class="fas fa-sync"></i> Auto Reorder
+                        </button>
+                        <button class="btn btn-info" onclick="viewAnalyticsDashboard()">
+                            <i class="fas fa-chart-line"></i> Advanced Analytics
+                        </button>
+                        <button class="btn btn-success" onclick="exportInventory()">
+                            <i class="fas fa-download"></i> Export Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stock Status Breakdown -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Stock Status</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-success">Normal Stock</span>
+                            <span id="normalStockCount">{{ (kpis.total_skus or 0) - (kpis.critical_items or 0) - (kpis.low_stock_items or 0) }}</span>
+                        </div>
+                        <div class="progress mb-2" style="height: 6px;">
+                            <div class="progress-bar bg-success" style="width: {{ (((kpis.total_skus or 0) - (kpis.critical_items or 0) - (kpis.low_stock_items or 0)) / (kpis.total_skus or 1) * 100) }}%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-warning">Low Stock</span>
+                            <span id="lowStockCount">{{ kpis.low_stock_items or 0 }}</span>
+                        </div>
+                        <div class="progress mb-2" style="height: 6px;">
+                            <div class="progress-bar bg-warning" style="width: {{ ((kpis.low_stock_items or 0) / (kpis.total_skus or 1) * 100) }}%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-danger">Critical</span>
+                            <span id="criticalStockCount">{{ kpis.critical_items or 0 }}</span>
+                        </div>
+                        <div class="progress mb-2" style="height: 6px;">
+                            <div class="progress-bar bg-danger" style="width: {{ ((kpis.critical_items or 0) / (kpis.total_skus or 1) * 100) }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Inventory Items</h5>
+            <div>
+                <button class="btn btn-outline-secondary btn-sm" onclick="exportInventory()">
+                    <i class="fas fa-download"></i> Export
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="refreshInventory()">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="inventoryTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>SKU</th>
+                            <th>Description</th>
+                            <th>Site</th>
+                            <th>On Hand</th>
+                            <th>Reserved</th>
+                            <th>Available</th>
+                            <th>Days Cover</th>
+                            <th>Reorder Point</th>
+                            <th>Risk</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in inventory_items %}
+                        <tr data-sku="{{ item.sku }}" data-site="{{ item.site_code }}">
+                            <td>
+                                <strong>{{ item.sku }}</strong>
+                                {% if item.days_cover and item.days_cover < 5 %}
+                                <span class="badge bg-danger ms-1">Critical</span>
+                                {% elif item.days_cover and item.days_cover < 10 %}
+                                <span class="badge bg-warning ms-1">Low</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div>{{ item.name }}</div>
+                                {% if item.category %}
+                                <small class="text-muted">{{ item.category }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark">{{ item.site_code or 'N/A' }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ "{:,}".format(item.quantity_on_hand or 0) }}</strong>
+                                <div class="small text-muted">{{ item.unit_of_measure or 'units' }}</div>
+                            </td>
+                            <td>
+                                <span class="text-muted">{{ "{:,}".format(item.quantity_on_order or 0) }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ "{:,}".format((item.quantity_on_hand or 0) - (item.quantity_on_order or 0)) }}</strong>
+                            </td>
+                            <td>
+                                {% if item.days_cover %}
+                                    {% if item.days_cover < 5 %}
+                                    <span class="text-danger fw-bold">{{ "%.1f"|format(item.days_cover) }}</span>
+                                    {% elif item.days_cover < 10 %}
+                                    <span class="text-warning fw-bold">{{ "%.1f"|format(item.days_cover) }}</span>
+                                    {% else %}
+                                    <span class="text-success">{{ "%.1f"|format(item.days_cover) }}</span>
+                                    {% endif %}
+                                {% else %}
+                                <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-muted">{{ "{:,}".format(item.reorder_point or 0) }}</span>
+                            </td>
+                            <td>
+                                {% if item.risk_level == 'high' %}
+                                <span class="badge bg-danger">High</span>
+                                {% elif item.risk_level == 'medium' %}
+                                <span class="badge bg-warning">Medium</span>
+                                {% else %}
+                                <span class="badge bg-success">Low</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="viewItem('{{ item.sku }}')">
+                                        <i class="fas fa-eye"></i> Details
+                                    </button>
+                                    {% if (item.quantity_on_hand or 0) <= (item.reorder_point or 0) %}
+                                    <button class="btn btn-sm btn-warning" onclick="reorderItem('{{ item.sku }}')">
+                                        <i class="fas fa-shopping-cart"></i> Reorder
+                                    </button>
+                                    {% endif %}
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="editItem('{{ item.sku }}')">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Inventory Modal -->
+<div class="modal fade" id="addInventoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Inventory Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addInventoryForm">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">SKU *</label>
+                            <input type="text" class="form-control" name="sku" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Name *</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Category</label>
+                            <select class="form-select" name="category">
+                                <option value="">Select Category</option>
+                                <option value="Raw Materials">Raw Materials</option>
+                                <option value="Components">Components</option>
+                                <option value="Finished Goods">Finished Goods</option>
+                                <option value="Packaging">Packaging</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Unit</label>
+                            <input type="text" class="form-control" name="unit" placeholder="e.g., kg, pcs, liters">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Current Stock</label>
+                            <input type="number" class="form-control" name="current_stock" min="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Min Inventory</label>
+                            <input type="number" class="form-control" name="min_inventory" min="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Max Inventory</label>
+                            <input type="number" class="form-control" name="max_inventory" min="0">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Site Code</label>
+                            <select class="form-select" name="site_code">
+                                <option value="">Select Site</option>
+                                <option value="LAX">LAX - Los Angeles</option>
+                                <option value="HAM">HAM - Hamburg</option>
+                                <option value="SHG">SHG - Shanghai</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Lead Time (days)</label>
+                            <input type="number" class="form-control" name="lead_time_days" min="1">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Item Detail Modal -->
+<div class="modal fade" id="itemDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Item Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="itemDetailContent">
+                    <!-- Content loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Threshold Management Modal -->
+<div class="modal fade" id="thresholdManagerModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Inventory Threshold Management</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" id="thresholdSearchSKU" placeholder="Search by SKU...">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="thresholdStatusFilter">
+                            <option value="">All Items</option>
+                            <option value="critical">Critical Items</option>
+                            <option value="normal">Normal Items</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary" onclick="bulkUpdateThresholds()">
+                            <i class="fas fa-save"></i> Save All Changes
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-striped" id="thresholdTable">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Description</th>
+                                <th>Current Stock</th>
+                                <th>Reorder Point</th>
+                                <th>Reorder Quantity</th>
+                                <th>Days Coverage</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="thresholdTableBody">
+                            <!-- Content loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Advanced Analytics Modal -->
+<div class="modal fade" id="analyticsModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Advanced Inventory Analytics</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Date Range Selector -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">Analysis Period</label>
+                        <select class="form-select" id="analyticsPeriod" onchange="refreshAnalytics()">
+                            <option value="7">Last 7 Days</option>
+                            <option value="30" selected>Last 30 Days</option>
+                            <option value="90">Last 90 Days</option>
+                            <option value="365">Last Year</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8 text-end">
+                        <button class="btn btn-outline-primary" onclick="exportAnalytics()">
+                            <i class="fas fa-download"></i> Export Analytics
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="refreshAnalytics()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Analytics Dashboard -->
+                <div class="row">
+                    <div class="col-lg-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">ABC Analysis</h6>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="abcAnalysisChart" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Turnover Analysis</h6>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="turnoverChart" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-8 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Category Performance</h6>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="categoryPerformanceChart" height="150"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Key Metrics</h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="keyMetricsContent">
+                                    <!-- Content loaded dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Top Items by Value</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm" id="topItemsTable">
+                                        <thead>
+                                            <tr>
+                                                <th>SKU</th>
+                                                <th>Description</th>
+                                                <th>Quantity</th>
+                                                <th>Unit Cost</th>
+                                                <th>Total Value</th>
+                                                <th>Turnover Rate</th>
+                                                <th>Days Coverage</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="topItemsTableBody">
+                                            <!-- Content loaded dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Auto Reorder Confirmation Modal -->
+<div class="modal fade" id="autoReorderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Automatic Reorder</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>This will automatically create purchase orders for all items below their reorder thresholds.</p>
+                <div id="reorderSummary">
+                    <!-- Content loaded dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" onclick="executeAutomaticReorder()">
+                    <i class="fas fa-sync"></i> Execute Reorder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/inventory.js') }}"></script>
+{% endblock %}
